@@ -8,23 +8,7 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
--include Drivers/STM32H7xx_HAL_Driver/Src/subdir.mk
--include Drivers/CMSIS/Source/TransformFunctions/subdir.mk
--include Drivers/CMSIS/Source/SupportFunctions/subdir.mk
--include Drivers/CMSIS/Source/StatisticsFunctions/subdir.mk
--include Drivers/CMSIS/Source/SoftmaxFunctions/subdir.mk
--include Drivers/CMSIS/Source/PoolingFunctions/subdir.mk
--include Drivers/CMSIS/Source/NNSupportFunctions/subdir.mk
--include Drivers/CMSIS/Source/MatrixFunctions/subdir.mk
--include Drivers/CMSIS/Source/FullyConnectedFunctions/subdir.mk
--include Drivers/CMSIS/Source/FilteringFunctions/subdir.mk
--include Drivers/CMSIS/Source/FastMathFunctions/subdir.mk
--include Drivers/CMSIS/Source/ConvolutionFunctions/subdir.mk
--include Drivers/CMSIS/Source/ControllerFunctions/subdir.mk
--include Drivers/CMSIS/Source/ComplexMathFunctions/subdir.mk
--include Drivers/CMSIS/Source/CommonTables/subdir.mk
--include Drivers/CMSIS/Source/BasicMathFunctions/subdir.mk
--include Drivers/CMSIS/Source/ActivationFunctions/subdir.mk
+-include Drivers/STM32H7xx_HAL_Driver/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
 -include Common/Src/subdir.mk
@@ -63,8 +47,8 @@ main_project_CM7.bin \
 all: main_project_CM7.elf secondary-outputs
 
 # Tool invocations
-main_project_CM7.elf: $(OBJS) $(USER_OBJS) C:\Users\ronny\STM32CubeIDE\mestrado\main_project\CM7\STM32H745ZITX_FLASH.ld
-	arm-none-eabi-gcc -o "main_project_CM7.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\ronny\STM32CubeIDE\mestrado\main_project\CM7\STM32H745ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="main_project_CM7.map" -Wl,--gc-sections -static -L"C:\Users\ronny\STM32CubeIDE\mestrado\main_project\Drivers\CMSIS\Lib" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+main_project_CM7.elf: $(OBJS) $(USER_OBJS) C:\Users\ronny\STM32CubeIDE\mestrado\amcmbdd\CM7\STM32H745ZITX_FLASH.ld
+	arm-none-eabi-gcc -o "main_project_CM7.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\ronny\STM32CubeIDE\mestrado\amcmbdd\CM7\STM32H745ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="main_project_CM7.map" -Wl,--gc-sections -static -L"C:\Users\ronny\STM32Cube\Repository\STM32Cube_FW_H7_V1.8.0\Drivers\CMSIS\Lib\GCC" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

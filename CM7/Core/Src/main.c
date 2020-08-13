@@ -17,10 +17,8 @@
   ******************************************************************************
   */
 /* USER CODE END Header */
-
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "rng.h"
 #include "tim.h"
 #include "usart.h"
 #include "usb_otg.h"
@@ -57,6 +55,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+	/* UART Receive Buffer */
+	uint8_t receiveBuffer[8192];
+	uint16_t bufferSize = 8192;
+	float processedBuffer[2048];
+	uint16_t arraySize = 2048;
 
 /* USER CODE END PV */
 
@@ -64,9 +67,15 @@
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void reset_buffer(char buffer[]){
-	for(uint32_t i = 1; i < 30; i++){
+	for(uint32_t i = 1; i < 50; i++){
 		buffer[i] = '\0';
 	}
+}
+void processBuffer(uint8_t *receiveBuffer, float32_t *processedBuffer, uint16_t arraySize){
+	for(int i = 0; i < arraySize*4; i = i + 4){
+		memcpy(&processedBuffer[i / 4], &receiveBuffer[i], 4);
+	}
+	// memcpy(&processedBuffer[0], &receiveBuffer[0], 4);
 }
 /* USER CODE END PFP */
 
@@ -82,27 +91,26 @@ void reset_buffer(char buffer[]){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	char hello_world[20] = {"\r\nHello World!\r\n"};
+	char transmitBuffer[50] = {'\0'};
 	float32_t signal_array[2048] = {0};
 	float32_t mean_value = 0.0f, mean_of_squared_value = 0.0f, std_dev_value = 0.0f, max = 0.0f;
 	float32_t moment = 0.0f, var = 0.0f;
 	float32_t * result;
 	uint32_t power = 2;
-	uint32_t random32bit, counter, length=2048, max_index;
-	char rand32[30] = {'\0'};
-	char hello_world[17] = {"\n\nHello World!\n\r"};
-	char size_of_signal_array[30] = {'\0'};
-	char counter_str[30] = {'\0'};
-	char buffer_0[30] = {'\0'};
-	char buffer_1[30] = {'\0'};
-	char buffer_2[30] = {'\0'};
-	char buffer_3[30] = {'\0'};
-	char buffer_4[30] = {'\0'};
-	char buffer_5[30] = {'\0'};
-	char receiveBuffer[9] = {'\0'};
+	uint32_t counter, length=2048, max_index;
+
   /* USER CODE END 1 */
-  /* USER CODE BEGIN Boot_Mode_Sequence_0 */
+
+/* USER CODE BEGIN Boot_Mode_Sequence_0 */
     int32_t timeout; 
-  /* USER CODE END Boot_Mode_Sequence_0 */
+/* USER CODE END Boot_Mode_Sequence_0 */
+
+  /* Enable I-Cache---------------------------------------------------------*/
+  SCB_EnableICache();
+
+  /* Enable D-Cache---------------------------------------------------------*/
+  SCB_EnableDCache();
 
 /* USER CODE BEGIN Boot_Mode_Sequence_1 */
   /* Wait until CPU2 boots and enters in stop mode or timeout*/
@@ -150,21 +158,10 @@ Error_Handler();
   MX_GPIO_Init();
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
-  MX_RNG_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  // Send Hello World via UART3
-  if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-	  HAL_UART_Transmit(&huart3, (uint8_t*) &hello_world[0], sizeof(hello_world), 100);
-  }
-
-  // Initialization of signal array using random numbers
-  __HAL_RNG_ENABLE(&hrng);
-
-  for (int i = 0; i < length; i++){
-  	HAL_RNG_GenerateRandomNumber(&hrng, &random32bit);
-  	signal_array[i] = (float) random32bit / UINT32_MAX; // Generates numbers between 0 and 1
-  }
+  HAL_UART_Receive_IT(&huart3, &receiveBuffer[0], bufferSize);
+  HAL_UART_Transmit(&huart3, (uint8_t*) &hello_world[0], sizeof(hello_world), 100);
 
   // HRTimer enable
   __HAL_TIM_ENABLE(&htim2);
@@ -172,133 +169,173 @@ Error_Handler();
   HAL_TIM_Base_Start(&htim2);
   __HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 
-  if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-	  HAL_UART_Receive(&huart3, (uint8_t*) &receiveBuffer[0], 8, 20);
-  }
-
-	// Array size
-	sprintf(size_of_signal_array, "Size of signal array = %ld \n\r", length);
-		if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &size_of_signal_array[0], sizeof(size_of_signal_array), 20);
-		while(HAL_UART_GetState(&huart3) == HAL_UART_STATE_BUSY_TX){}
-	}
-	// Random number examples
-	sprintf(rand32, "Random = %f \n\r", signal_array[0]);
-		if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &rand32[0], sizeof(rand32), 20);
-	}
-	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	sprintf(&counter_str[0], "Test counter = %ld \n\r", counter);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &counter_str[0], sizeof(counter_str), 20);
-	}
-	reset_buffer(counter_str);
-
-	// Instantaneous absolute value
+    // Instantaneous absolute value
 	result = (float32_t *) malloc(length * sizeof(float32_t));
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_absolute(signal_array, result, &length);
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	sprintf(&counter_str[0], "Inst abs counter = %ld \n\r", counter);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &counter_str[0], sizeof(counter_str), 20);
+
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Inst abs counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
+
 	free(result);
-	reset_buffer(counter_str);
 
 	// Mean
+	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
 	mean(signal_array, &mean_value, &length);
+	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	sprintf(&buffer_0[0], "Mean = %f \n\r", mean_value);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &buffer_0[0], sizeof(buffer_0), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Mean = %f\r\n", mean_value);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	sprintf(&counter_str[0], "Counter = %ld \n\r", counter);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &counter_str[0], sizeof(counter_str), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	reset_buffer(counter_str);
 
 	// Mean of squared
+	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
 	mean_of_squared(signal_array, &mean_of_squared_value, &length);
+	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	sprintf(&buffer_1[0], "Mean of squared = %f \n\r", mean_of_squared_value);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &buffer_1[0], sizeof(buffer_1), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Mean of squared = %f\r\n", mean_of_squared_value);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	sprintf(&counter_str[0], "Counter = %ld \n\r", counter);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &counter_str[0], sizeof(counter_str), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	reset_buffer(counter_str);
 
 	// Standard deviation
+	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
 	std_dev(signal_array, &std_dev_value, &length);
+	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	sprintf(&buffer_2[0], "Std dev = %f \n\r", std_dev_value);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &buffer_2[0], sizeof(buffer_2), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Standard deviation = %f\r\n", std_dev_value);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	sprintf(&counter_str[0], "Counter = %ld \n\r", counter);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &counter_str[0], sizeof(counter_str), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	reset_buffer(counter_str);
 
 	// GMAX
+	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
 	gmax(signal_array, &length, &max, &max_index);
+	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	sprintf(&buffer_3[0], "Gmax = %f \n\r", max);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &buffer_3[0], sizeof(buffer_3), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Gmax = %f\r\n", max);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	sprintf(&counter_str[0], "Counter = %ld \n\r", counter);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &counter_str[0], sizeof(counter_str), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	reset_buffer(counter_str);
 
 	// Variance
+	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
 	variance(signal_array, &var, &length);
+	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	sprintf(&buffer_4[0], "Variance = %f \n\r", var);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Variance = %f\r\n", var);
 	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &buffer_4[0], sizeof(buffer_4), 20);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	sprintf(&counter_str[0], "Counter = %ld \n\r", counter);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &counter_str[0], sizeof(counter_str), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	reset_buffer(counter_str);
 
 	// Central moment
+	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
 	central_moment(signal_array, &length, &power, &moment);
+	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	sprintf(&buffer_5[0], "Central moment = %f \n\r", moment);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Central moment = %f\r\n", moment);
 	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &buffer_5[0], sizeof(buffer_5), 20);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	sprintf(&counter_str[0], "Counter = %ld \n\r", counter);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &counter_str[0], sizeof(counter_str), 20);
+	// Transmission routine
+	reset_buffer(transmitBuffer);
+	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-	reset_buffer(counter_str);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  __HAL_TIM_SET_COUNTER(&htim2, 0x0U);
   while (1)
   {
+	if(__HAL_TIM_GET_COUNTER(&htim2) >= 240000000){
+		if((HAL_GPIO_ReadPin(LD2_GPIO_Port, LD2_Pin))){
+			HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_RESET);
+		} else {
+			HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_SET);
+		}
+		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+		if(receiveBuffer[3] != 0){
+			processBuffer(receiveBuffer, processedBuffer, arraySize);
+		}
+		reset_buffer(transmitBuffer);
+		sprintf(&transmitBuffer[0], "(%.2f) + j(%.2f)\r\n", processedBuffer[0], processedBuffer[1]);
+		if(UART_CheckIdleState(&huart3) == HAL_OK){
+			HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
+		}
+	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
+
   /* USER CODE END 3 */
 }
 
@@ -312,26 +349,25 @@ void SystemClock_Config(void)
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
-  /** Supply configuration update enable 
+  /** Supply configuration update enable
   */
-  HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);
-  /** Configure the main internal regulator output voltage 
+  HAL_PWREx_ConfigSupply(PWR_DIRECT_SMPS_SUPPLY);
+  /** Configure the main internal regulator output voltage
   */
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
-  /** Initializes the CPU, AHB and APB busses clocks 
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSI
-                              |RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 5;
-  RCC_OscInitStruct.PLL.PLLN = 96;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 60;
   RCC_OscInitStruct.PLL.PLLP = 2;
   RCC_OscInitStruct.PLL.PLLQ = 2;
   RCC_OscInitStruct.PLL.PLLR = 2;
@@ -342,7 +378,7 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  /** Initializes the CPU, AHB and APB busses clocks 
+  /** Initializes the CPU, AHB and APB buses clocks
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
@@ -359,22 +395,27 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_USART3|RCC_PERIPHCLK_RNG
-                              |RCC_PERIPHCLK_USB;
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_USART3|RCC_PERIPHCLK_USB;
   PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_HSI;
-  PeriphClkInitStruct.RngClockSelection = RCC_RNGCLKSOURCE_HSI48;
   PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_HSI48;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
     Error_Handler();
   }
-  /** Enable USB Voltage detector 
+  /** Enable USB Voltage detector
   */
   HAL_PWREx_EnableUSBVoltageDetector();
 }
 
 /* USER CODE BEGIN 4 */
-
+/*
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+	__NOP();
+}
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
+	__NOP();
+}
+*/
 /* USER CODE END 4 */
 
 /**
@@ -398,7 +439,7 @@ void Error_Handler(void)
   * @retval None
   */
 void assert_failed(uint8_t *file, uint32_t line)
-{ 
+{
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
