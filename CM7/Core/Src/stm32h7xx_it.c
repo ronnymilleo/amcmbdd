@@ -42,8 +42,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-extern uint8_t receiveBuffer[8192];
-extern uint16_t bufferSize;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,6 +57,7 @@ extern uint16_t bufferSize;
 /* External variables --------------------------------------------------------*/
 extern UART_HandleTypeDef huart3;
 /* USER CODE BEGIN EV */
+extern uint8_t received;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -203,10 +202,11 @@ void SysTick_Handler(void)
 void USART3_IRQHandler(void)
 {
   /* USER CODE BEGIN USART3_IRQn 0 */
-  HAL_UART_Receive_IT(&huart3, &receiveBuffer[0], bufferSize);
+  received = 1;
   /* USER CODE END USART3_IRQn 0 */
   HAL_UART_IRQHandler(&huart3);
   /* USER CODE BEGIN USART3_IRQn 1 */
+
   /* USER CODE END USART3_IRQn 1 */
 }
 
