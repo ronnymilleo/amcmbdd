@@ -62,6 +62,8 @@
 	uint16_t arraySize = 2048;
 	char transmitBuffer[50] = {'\0'};
 	uint8_t received = 0;
+	uint8_t processed = 0;
+	__IO ITStatus UartReady = RESET;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -76,6 +78,8 @@ void processBuffer(uint8_t *receiveBuffer, float *processedBuffer, uint16_t arra
 	for(int i = 0; i < arraySize*4; i = i + 4){
 		memcpy(&processedBuffer[i / 4], &receiveBuffer[i], 4);
 	}
+	processed = 1;
+	received = 1;
 	// memcpy(&processedBuffer[0], &receiveBuffer[0], 4);
 }
 void echoReceived(float *processedBuffer, char *transmitBuffer){
@@ -173,7 +177,25 @@ Error_Handler();
   MX_USB_OTG_FS_PCD_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_IT(&huart3, &receiveBuffer[0], bufferSize);
+  // Put UART peripheral in reception process
+  if(HAL_UART_Receive_IT(&huart3, &receiveBuffer[0], bufferSize) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  // Wait for message
+  while (UartReady != SET)
+  {
+	HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
+    HAL_Delay(100);
+    HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
+    HAL_Delay(100);
+    HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
+    HAL_Delay(100);
+    HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
+    HAL_Delay(500);
+  }
+  UartReady = RESET;
+
   HAL_UART_Transmit(&huart3, (uint8_t*) &hello_world[0], sizeof(hello_world), 100);
   HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
 
@@ -332,7 +354,7 @@ Error_Handler();
 			HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_SET);
 		}
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		if(receiveBuffer[2047] != 0){
+		if(receiveBuffer[8191] != 0 && (processed == 0)){
 			processBuffer(receiveBuffer, processedBuffer, arraySize);
 		}
 		if(received == 1){
@@ -404,7 +426,7 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_USART3|RCC_PERIPHCLK_USB;
-  PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_D2PCLK1;
+  PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_HSI;
   PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_HSI48;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
@@ -416,14 +438,15 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-/*
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
-	__NOP();
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart3)
+{
+  /* Set transmission flag: transfer complete */
+  UartReady = SET;
 }
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
-	__NOP();
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart3){
+  /* Set transmission flag: transfer complete */
+  UartReady = SET;
 }
-*/
 /* USER CODE END 4 */
 
 /**
