@@ -7,23 +7,97 @@
 
 #include "functions.h"
 
+static float32_t pi = 3.141592654f;
+extern uint16_t frameSize;
+extern uint16_t doubleFrameSize;
+
 // Preprocessing
 
-void inst_absolute(float32_t src[], float32_t dst[], uint32_t *length){
-	arm_abs_f32(&src[0], &dst[0], *length);
+void inst_absolute(float32_t in[], float32_t out[]){
+	int j = 0;
+	for(int i = 0; i < doubleFrameSize; i = i + 2){
+		out[j] = sqrtf(in[i] * in[i] + in[i+1] * in[i+1]);
+		j++;
+	}
 }
 
-void inst_phase(float32_t src[], float32_t dst[], uint32_t *length){
-
+void inst_phase(float32_t in[], float32_t out[]){
+	int j = 0;
+	for(int i = 0; i < doubleFrameSize; i = i + 2){
+		out[j] = atan2(in[i+1], in[i]);
+		j++;
+	}
 }
-void inst_unwrapped_phase(float32_t src[], float32_t dst[], uint32_t *length){
 
+void unwrap(float32_t in[], float32_t out[]){
+	/* MATLAB
+	k=0; % initialize k to 0
+	i=1; % initialize the counter to 1
+	alpha=pi; % set alpha to the desired Tolerance. In this case, pi
+
+	for i = 1:(size(u)-1)
+	    yout(i,:)=u(i)+(2*pi*k); % add 2*pi*k to ui
+	    if((abs(u(i+1)-u(i)))>(abs(alpha)))  %if diff is greater than alpha, increment or decrement k
+
+	        if u(i+1)<u(i)   % if the phase jump is negative, increment k
+	            k=k+1;
+	        else             % if the phase jump is positive, decrement k
+	            k=k-1;
+	        end
+	    end
+	end
+	yout((i+1),:)=u(i+1)+(2*pi*k); % add 2*pi*k to the last element of the input
+	*/
+	uint16_t k = 0;
+	float32_t alpha = pi;
+	for(int i = 0; i < (frameSize - 1); i++){
+		out[i] = in[i] + 2*pi*k;
+		if(abs(in[i+1] - in[i]) > abs(alpha)){
+			if(in[i+1] < in[i]){
+				k++;
+			} else {
+				k--;
+			}
+		}
+	}
+	out[frameSize-1] = in[frameSize-1] + 2*pi*k;
 }
-void inst_frequency(float32_t src[], float32_t dst[], uint32_t *length){
 
+void inst_frequency(float32_t in[], float32_t out[]){
+	float32_t *inst_phase, *unwrapped_phase;
+	inst_phase = (float32_t *) malloc(frameSize * sizeof(float32_t));
+	unwrapped_phase = (float32_t *) malloc(frameSize * sizeof(float32_t));
+	int j = 0;
+	for(int i = 0; i < doubleFrameSize; i = i + 2){
+		inst_phase[j] = atan2(in[i], in[i+1]);
+		j++;
+	}
+	unwrap(inst_phase, unwrapped_phase);
+	for(int i = 0; i < frameSize - 1; i++){
+		out[i] = (1/(2*pi))*(unwrapped_phase[i+1] - unwrapped_phase[i]);
+	}
+	out[frameSize - 1] = (1/(2*pi))*(0 - unwrapped_phase[frameSize - 1]);
+	free(inst_phase);
+	free(unwrapped_phase);
 }
-void inst_centralized_normalized_absolute(float32_t src[], float32_t dst[], uint32_t *length){
 
+void inst_centralized_normalized_absolute(float32_t in[], float32_t out[]){
+	float32_t mean = 0, max = 0;
+	uint32_t max_index = 0;
+	float32_t *absolute, *normalized;
+	absolute = (float32_t *) malloc(frameSize * sizeof(float32_t));
+	normalized = (float32_t *) malloc(frameSize * sizeof(float32_t));
+	inst_absolute(in, &absolute[0]);
+	arm_max_f32(absolute, frameSize, &max, &max_index);
+	for(int a = 0; a < frameSize; a++){
+		normalized[a] = absolute[a] / max;
+	}
+	arm_mean_f32(&normalized[0], frameSize, &mean);
+	for(int i = 0; i < frameSize; i++){
+		out[i] = normalized[i] / mean - 1;
+	}
+	free(absolute);
+	free(normalized);
 }
 
 void mean(float32_t src[], float32_t *dst, uint32_t *length) {

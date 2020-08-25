@@ -9,11 +9,11 @@
 #include "arm_const_structs.h"
 #include <stdlib.h>
 
-void inst_absolute(float32_t src[], float32_t dst[], uint32_t *length);
-void inst_phase(float32_t src[], float32_t dst[], uint32_t *length);
-void inst_unwrapped_phase(float32_t src[], float32_t dst[], uint32_t *length);
-void inst_frequency(float32_t src[], float32_t dst[], uint32_t *length);
-void inst_centralized_normalized_absolute(float32_t src[], float32_t dst[], uint32_t *length);
+void inst_absolute(float32_t in[], float32_t out[]);
+void inst_phase(float32_t in[], float32_t out[]);
+void unwrap(float32_t in[], float32_t out[]);
+void inst_frequency(float32_t in[], float32_t out[]);
+void inst_centralized_normalized_absolute(float32_t in[], float32_t out[]);
 
 void mean(float32_t src[], float32_t *dst, uint32_t *length);
 void mean_of_squared(float32_t src[], float32_t *dst, uint32_t *length);

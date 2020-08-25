@@ -55,52 +55,29 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-	/* UART Receive Buffer */
-	uint8_t receiveBuffer[8192];
-	uint16_t bufferSize = 8192;
-	float processedBuffer[2048];
-	uint16_t arraySize = 2048;
-	char transmitBuffer[50] = {'\0'};
-	uint8_t received = 0;
-	uint8_t processed = 0;
-	__IO ITStatus UartReady = RESET;
+uint16_t frameSize = 1024;
+uint16_t doubleFrameSize = 2048;
+uint8_t rxDataBuffer[8192];
+uint8_t txDataBuffer[8192];
+uint8_t txHead[4] = {0xCA, 0xCA, 0xCA, 0xCA};
+uint8_t txTail[4] = {0xF0, 0xF0, 0xF0, 0xF0};
+uint16_t bufferSize = 8192;
+float processedData[2048];
+uint16_t arraySize = 2048;
+char txStringBuffer[50] = {'\0'};
+uint8_t received = 0;
+uint8_t processed = 0;
+__IO ITStatus UartReady = RESET;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void reset_buffer(char *buffer){
-	for(uint32_t i = 1; i < 50; i++){
-		buffer[i] = '\0';
-	}
-}
-void processBuffer(uint8_t *receiveBuffer, float *processedBuffer, uint16_t arraySize){
-	for(int i = 0; i < arraySize*4; i = i + 4){
-		memcpy(&processedBuffer[i / 4], &receiveBuffer[i], 4);
-	}
-	processed = 1;
-	received = 1;
-	// memcpy(&processedBuffer[0], &receiveBuffer[0], 4);
-}
-void echoReceived(float *processedBuffer, char *transmitBuffer){
-	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
-	for(int i = 0; i < 2048; i = i + 2){
-		reset_buffer(&transmitBuffer[0]);
-		sprintf(&transmitBuffer[0], "%d - (%.6f) + j(%.6f)\r\n", i, processedBuffer[i], processedBuffer[i+1]);
-		if(UART_CheckIdleState(&huart3) == HAL_OK){
-			if(HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], 50, 100) == HAL_TIMEOUT){
-				break;
-			}
-		}
-	}
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "&");
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], 50, 100);
-	}
-	received = 0;
-	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
-}
+void reset_buffer(char *stringBuffer);
+void resetDataBuffer(uint8_t *dataBuffer);
+void byte2float(uint8_t *rxDataBuffer, float *processedData, uint16_t arraySize);
+void float2byte(uint8_t *txDataBuffer, float *processedData, uint16_t arraySize);
+void echoReceived(float *processedBuffer, char *transmitBuffer);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -115,13 +92,14 @@ void echoReceived(float *processedBuffer, char *transmitBuffer){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	char hello_world[50] = {"\r\nHello World!\r\n"};
-	float32_t signal_array[2048] = {0};
-	float32_t mean_value = 0.0f, mean_of_squared_value = 0.0f, std_dev_value = 0.0f, max = 0.0f;
-	float32_t moment = 0.0f, var = 0.0f;
-	float32_t * result;
-	uint32_t power = 2;
-	uint32_t counter, length=2048, max_index;
+	// char hello_world[50] = {"\r\nHello World!\r\n"};
+	uint32_t length = 2048, frameSize = 1024;
+	uint32_t counter = 0;
+	float32_t * instAbs;
+	float32_t instPhase[1024], instFreq[1024], instCNA[1024], unwrappedPhase[1024];
+	// float32_t mean_value = 0.0f, mean_of_squared_value = 0.0f, std_dev_value = 0.0f, max = 0.0f;
+	// float32_t moment = 0.0f, var = 0.0f;
+	// uint32_t power = 2, max_index;
 
   /* USER CODE END 1 */
 
@@ -178,7 +156,7 @@ Error_Handler();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   // Put UART peripheral in reception process
-  if(HAL_UART_Receive_IT(&huart3, &receiveBuffer[0], bufferSize) != HAL_OK)
+  if(HAL_UART_Receive_IT(&huart3, &rxDataBuffer[0], bufferSize) != HAL_OK)
   {
     Error_Handler();
   }
@@ -196,8 +174,12 @@ Error_Handler();
   }
   UartReady = RESET;
 
-  HAL_UART_Transmit(&huart3, (uint8_t*) &hello_world[0], sizeof(hello_world), 100);
+  // HAL_UART_Transmit(&huart3, (uint8_t*) &hello_world[0], sizeof(hello_world), 100);
   HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
+
+  if(rxDataBuffer[8191] != 0 && (processed == 0)){
+	  byte2float(rxDataBuffer, processedData, arraySize);
+  }
 
   // HRTimer enable
   __HAL_TIM_ENABLE(&htim2);
@@ -205,26 +187,91 @@ Error_Handler();
   HAL_TIM_Base_Start(&htim2);
   __HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 
+  	/*****************************************************************************************************/
+    /*
     // Instantaneous absolute value
-	result = (float32_t *) malloc(length * sizeof(float32_t));
+    instAbs = (float32_t *) malloc((length/2) * sizeof(float32_t));
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	inst_absolute(signal_array, result, &length);
+	inst_absolute(&processedData[0], &instAbs[0]);
+	counter = __HAL_TIM_GET_COUNTER(&htim2);
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Inst abs counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
+	}
+	resetDataBuffer(txDataBuffer);
+	float2byte(txDataBuffer, instAbs, arraySize);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
+	}
+	free(instAbs);
+	*/
+    /*
+	// Instantaneous phase value
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	inst_phase(&processedData[0], &instPhase[0]);
+	unwrap(&instPhase[0], &unwrappedPhase[0]);
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Transmission routine
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "Inst abs counter = %ld\r\n", counter);
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Inst phase counter = %ld\r\n", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
 	}
 
-	free(result);
+	resetDataBuffer(txDataBuffer);
+	float2byte(txDataBuffer, unwrappedPhase, arraySize);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
+	}
+	*/
 
+	// Instantaneous frequency value
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	inst_frequency(&processedData[0], &instFreq[0]);
+	counter = __HAL_TIM_GET_COUNTER(&htim2);
+	/*
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Inst freq counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
+	}
+	*/
+	resetDataBuffer(txDataBuffer);
+	float2byte(txDataBuffer, instFreq, arraySize);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
+	}
+
+	/*
+	// Instantaneous centered normalized absolute value
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	inst_centralized_normalized_absolute(&processedData[0], &instCNA[0]);
+	counter = __HAL_TIM_GET_COUNTER(&htim2);
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Inst CNA counter = %ld\r\n&", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
+	resetDataBuffer(txDataBuffer);
+	float2byte(txDataBuffer, instCNA, arraySize);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
+	}
+	*/
+	/*****************************************************************************************************/
+
+	/*
 	// Mean
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	// Processing
-	mean(signal_array, &mean_value, &length);
+	mean(processedBuffer, &mean_value, &length);
 	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
@@ -244,7 +291,7 @@ Error_Handler();
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	// Processing
-	mean_of_squared(signal_array, &mean_of_squared_value, &length);
+	mean_of_squared(processedBuffer, &mean_of_squared_value, &length);
 	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
@@ -264,7 +311,7 @@ Error_Handler();
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	// Processing
-	std_dev(signal_array, &std_dev_value, &length);
+	std_dev(processedBuffer, &std_dev_value, &length);
 	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
@@ -284,7 +331,7 @@ Error_Handler();
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	// Processing
-	gmax(signal_array, &length, &max, &max_index);
+	gmax(processedBuffer, &length, &max, &max_index);
 	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
@@ -304,7 +351,7 @@ Error_Handler();
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	// Processing
-	variance(signal_array, &var, &length);
+	variance(processedBuffer, &var, &length);
 	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
@@ -324,7 +371,7 @@ Error_Handler();
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	// Processing
-	central_moment(signal_array, &length, &power, &moment);
+	central_moment(processedBuffer, &length, &power, &moment);
 	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
@@ -337,14 +384,18 @@ Error_Handler();
 	reset_buffer(&transmitBuffer[0]);
 	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
 	}
+	*/
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   __HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+  HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
   while (1)
   {
 	if(__HAL_TIM_GET_COUNTER(&htim2) >= 240000000){
@@ -354,12 +405,6 @@ Error_Handler();
 			HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_SET);
 		}
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		if(receiveBuffer[8191] != 0 && (processed == 0)){
-			processBuffer(receiveBuffer, processedBuffer, arraySize);
-		}
-		if(received == 1){
-			echoReceived(&processedBuffer[0], &transmitBuffer[0]);
-		}
 	}
     /* USER CODE END WHILE */
 
@@ -438,6 +483,57 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void reset_buffer(char *stringBuffer){
+	for(uint16_t i = 1; i < 50; i++){
+		stringBuffer[i] = '\0';
+	}
+}
+void resetDataBuffer(uint8_t *dataBuffer){
+	for(uint16_t i = 1; i < 8192; i++){
+		dataBuffer[i] = 0;
+	}
+}
+void byte2float(uint8_t *rxDataBuffer, float *processedData, uint16_t arraySize){
+	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
+	for(int i = 0; i < arraySize*4; i = i + 4){
+		memcpy(&processedData[i / 4], &rxDataBuffer[i], 4);
+	}
+	processed = 1;
+	received = 1;
+	// memcpy(&processedBuffer[0], &receiveBuffer[0], 4);
+	HAL_Delay(500);
+	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+}
+void float2byte(uint8_t *txDataBuffer, float *processedData, uint16_t arraySize){
+	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
+	for(int i = 0; i < arraySize*4; i = i + 4){
+		memcpy(&txDataBuffer[i], &processedData[i / 4], 4);
+	}
+	processed = 1;
+	received = 1;
+	// memcpy(&processedBuffer[0], &receiveBuffer[0], 4);
+	HAL_Delay(500);
+	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+}
+void echoReceived(float *processedBuffer, char *transmitBuffer){
+	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
+	for(int i = 0; i < 2048; i = i + 2){
+		reset_buffer(&transmitBuffer[0]);
+		sprintf(&transmitBuffer[0], "%d - (%.6f) + j(%.6f)\r\n", i, processedBuffer[i], processedBuffer[i+1]);
+		if(UART_CheckIdleState(&huart3) == HAL_OK){
+			if(HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], 50, 100) == HAL_TIMEOUT){
+				break;
+			}
+		}
+	}
+	reset_buffer(&transmitBuffer[0]);
+	sprintf(&transmitBuffer[0], "&");
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], 50, 100);
+	}
+	received = 0;
+	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+}
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart3)
 {
   /* Set transmission flag: transfer complete */
