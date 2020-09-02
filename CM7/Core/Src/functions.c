@@ -9,13 +9,12 @@
 
 static float32_t pi = 3.141592654f;
 extern uint16_t frameSize;
-extern uint16_t doubleFrameSize;
 
 // Preprocessing
 
 void inst_absolute(float32_t in[], float32_t out[]){
 	int j = 0;
-	for(int i = 0; i < doubleFrameSize; i = i + 2){
+	for(int i = 0; i < 2*frameSize; i = i + 2){
 		out[j] = sqrtf(in[i] * in[i] + in[i+1] * in[i+1]);
 		j++;
 	}
@@ -23,7 +22,7 @@ void inst_absolute(float32_t in[], float32_t out[]){
 
 void inst_phase(float32_t in[], float32_t out[]){
 	int j = 0;
-	for(int i = 0; i < doubleFrameSize; i = i + 2){
+	for(int i = 0; i < 2*frameSize; i = i + 2){
 		out[j] = atan2(in[i+1], in[i]);
 		j++;
 	}
@@ -68,7 +67,7 @@ void inst_frequency(float32_t in[], float32_t out[]){
 	inst_phase = (float32_t *) malloc(frameSize * sizeof(float32_t));
 	unwrapped_phase = (float32_t *) malloc(frameSize * sizeof(float32_t));
 	int j = 0;
-	for(int i = 0; i < doubleFrameSize; i = i + 2){
+	for(int i = 0; i < 2*frameSize; i = i + 2){
 		inst_phase[j] = atan2(in[i], in[i+1]);
 		j++;
 	}
@@ -100,22 +99,22 @@ void inst_centralized_normalized_absolute(float32_t in[], float32_t out[]){
 	free(normalized);
 }
 
-void mean(float32_t src[], float32_t *dst, uint32_t *length) {
-	arm_mean_f32(&src[0], *length, dst);
+void mean(float32_t in[], float32_t *out, uint32_t *length) {
+	arm_mean_f32(&in[0], *length, out);
 }
 
-void mean_of_squared(float32_t src[], float32_t *dst, uint32_t *length) {
+void mean_of_squared(float32_t in[], float32_t *out, uint32_t *length) {
 	float32_t result;
-	arm_power_f32(&src[0], *length, &result);
-	*dst = result / (float32_t) *length;
+	arm_power_f32(&in[0], *length, &result);
+	*out = result / (float32_t) *length;
 }
 
-void std_dev(float32_t src[], float32_t *dst, uint32_t *length) {
-	arm_std_f32(&src[0], *length, dst);
+void std_dev(float32_t in[], float32_t *out, uint32_t *length) {
+	arm_std_f32(&in[0], *length, out);
 }
 
-void variance(float32_t src[], float32_t *dst, uint32_t *length) {
-	arm_var_f32(&src[0], *length, dst);
+void variance(float32_t in[], float32_t *out, uint32_t *length) {
+	arm_var_f32(&in[0], *length, out);
 }
 
 void gmax(float32_t src[], uint32_t *length, float32_t *maxValue, uint32_t *maxValueIndex){

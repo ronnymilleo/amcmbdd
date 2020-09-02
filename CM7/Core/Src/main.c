@@ -43,7 +43,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
- 
 #define HSEM_ID_0 (0U) /* HW semaphore 0*/
 /* USER CODE END PD */
 
@@ -55,18 +54,19 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint16_t frameSize = 1024;
-uint16_t doubleFrameSize = 2048;
-uint8_t rxDataBuffer[8192];
-uint8_t txDataBuffer[8192];
-uint8_t txHead[4] = {0xCA, 0xCA, 0xCA, 0xCA};
-uint8_t txTail[4] = {0xF0, 0xF0, 0xF0, 0xF0};
-uint16_t bufferSize = 8192;
-float processedData[2048];
-uint16_t arraySize = 2048;
-char txStringBuffer[50] = {'\0'};
+// Read-only variables go to FLASH memory
+const uint16_t frameSize = 1024;
+const uint16_t bufferSize = 8192;
+const uint8_t txHead[4] = {0xCA, 0xCA, 0xCA, 0xCA};
+const uint8_t txTail[4] = {0xF0, 0xF0, 0xF0, 0xF0};
+
+// Variables go to FLASH memory
 uint8_t received = 0;
 uint8_t processed = 0;
+uint8_t rxDataBuffer[8192] = {0};
+uint8_t txDataBuffer[8192] = {0};
+float32_t processedData[2048] = {0};
+char txStringBuffer[50] = {'\0'};
 __IO ITStatus UartReady = RESET;
 /* USER CODE END PV */
 
@@ -93,10 +93,12 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	// char hello_world[50] = {"\r\nHello World!\r\n"};
-	uint32_t length = 2048, frameSize = 1024;
 	uint32_t counter = 0;
-	float32_t * instAbs;
-	float32_t instPhase[1024], instFreq[1024], instCNA[1024], unwrappedPhase[1024];
+	float32_t instAbs[1024];
+	float32_t instPhase[1024];
+	float32_t instFreq[1024];
+	float32_t instCNA[1024];
+	float32_t unwrappedPhase[1024];
 	// float32_t mean_value = 0.0f, mean_of_squared_value = 0.0f, std_dev_value = 0.0f, max = 0.0f;
 	// float32_t moment = 0.0f, var = 0.0f;
 	// uint32_t power = 2, max_index;
@@ -178,7 +180,7 @@ Error_Handler();
   HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
 
   if(rxDataBuffer[8191] != 0 && (processed == 0)){
-	  byte2float(rxDataBuffer, processedData, arraySize);
+	  byte2float(rxDataBuffer, processedData, 2*frameSize);
   }
 
   // HRTimer enable
@@ -188,67 +190,60 @@ Error_Handler();
   __HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 
   	/*****************************************************************************************************/
-    /*
     // Instantaneous absolute value
-    instAbs = (float32_t *) malloc((length/2) * sizeof(float32_t));
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_absolute(&processedData[0], &instAbs[0]);
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
 	reset_buffer(&txStringBuffer[0]);
-	sprintf(&txStringBuffer[0], "Inst abs counter = %ld\r\n", counter);
+	sprintf(&txStringBuffer[0], "Inst abs counter = %ld\r\n&", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
 	}
+	HAL_Delay(2000);
 	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, instAbs, arraySize);
+	float2byte(txDataBuffer, instAbs, 2*frameSize);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
 	}
-	free(instAbs);
-	*/
-    /*
+	/*****************************************************************************************************/
 	// Instantaneous phase value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_phase(&processedData[0], &instPhase[0]);
 	unwrap(&instPhase[0], &unwrappedPhase[0]);
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
-
 	// Transmission routine
 	reset_buffer(&txStringBuffer[0]);
 	sprintf(&txStringBuffer[0], "Inst phase counter = %ld\r\n", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
 	}
-
 	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, unwrappedPhase, arraySize);
+	float2byte(txDataBuffer, unwrappedPhase, 2*frameSize);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
 	}
-	*/
-
+	/*****************************************************************************************************/
 	// Instantaneous frequency value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_frequency(&processedData[0], &instFreq[0]);
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	/*
 	// Transmission routine
 	reset_buffer(&txStringBuffer[0]);
 	sprintf(&txStringBuffer[0], "Inst freq counter = %ld\r\n", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
 	}
-	*/
 	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, instFreq, arraySize);
+	float2byte(txDataBuffer, instFreq, 2*frameSize);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
 	}
-
-	/*
+	/*****************************************************************************************************/
 	// Instantaneous centered normalized absolute value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_centralized_normalized_absolute(&processedData[0], &instCNA[0]);
@@ -258,15 +253,16 @@ Error_Handler();
 	sprintf(&txStringBuffer[0], "Inst CNA counter = %ld\r\n&", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
-	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, instCNA, arraySize);
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
 	}
-	*/
+	resetDataBuffer(txDataBuffer);
+	float2byte(txDataBuffer, instCNA, 2*frameSize);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
+	}
 	/*****************************************************************************************************/
-
-	/*
+#ifdef MEAN
 	// Mean
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -286,7 +282,8 @@ Error_Handler();
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-
+#endif
+#ifdef MEAN_SQUARED
 	// Mean of squared
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -306,7 +303,8 @@ Error_Handler();
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-
+#endif
+#ifdef STD_DEV
 	// Standard deviation
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -326,7 +324,8 @@ Error_Handler();
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-
+#endif
+#ifdef GMAX
 	// GMAX
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -346,7 +345,8 @@ Error_Handler();
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-
+#endif
+#ifdef VAR
 	// Variance
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -366,7 +366,8 @@ Error_Handler();
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
-
+#endif
+#ifdef MOMENT
 	// Central moment
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -386,8 +387,7 @@ Error_Handler();
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
 	}
-	*/
-
+#endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -493,7 +493,7 @@ void resetDataBuffer(uint8_t *dataBuffer){
 		dataBuffer[i] = 0;
 	}
 }
-void byte2float(uint8_t *rxDataBuffer, float *processedData, uint16_t arraySize){
+void byte2float(uint8_t *rxDataBuffer, float32_t *processedData, uint16_t arraySize){
 	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
 	for(int i = 0; i < arraySize*4; i = i + 4){
 		memcpy(&processedData[i / 4], &rxDataBuffer[i], 4);
