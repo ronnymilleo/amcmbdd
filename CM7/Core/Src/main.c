@@ -21,7 +21,6 @@
 #include "main.h"
 #include "tim.h"
 #include "usart.h"
-#include "usb_otg.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -63,9 +62,9 @@ const uint8_t txTail[4] = {0xF0, 0xF0, 0xF0, 0xF0};
 // Variables go to FLASH memory
 uint8_t received = 0;
 uint8_t processed = 0;
-uint8_t rxDataBuffer[8192] = {0};
-uint8_t txDataBuffer[8192] = {0};
-float32_t processedData[2048] = {0};
+uint8_t rxDataBuffer[8192];
+uint8_t txDataBuffer[8192];
+float processedData[2048];
 char txStringBuffer[50] = {'\0'};
 __IO ITStatus UartReady = RESET;
 /* USER CODE END PV */
@@ -75,8 +74,8 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void reset_buffer(char *stringBuffer);
 void resetDataBuffer(uint8_t *dataBuffer);
-void byte2float(uint8_t *rxDataBuffer, float *processedData, uint16_t arraySize);
-void float2byte(uint8_t *txDataBuffer, float *processedData, uint16_t arraySize);
+void byte2float(uint8_t *rxDataBuffer, float *processedData);
+void float2byte(uint8_t *txDataBuffer, float *processedData);
 void echoReceived(float *processedBuffer, char *transmitBuffer);
 /* USER CODE END PFP */
 
@@ -108,6 +107,12 @@ int main(void)
 /* USER CODE BEGIN Boot_Mode_Sequence_0 */
     int32_t timeout; 
 /* USER CODE END Boot_Mode_Sequence_0 */
+
+  /* Enable I-Cache---------------------------------------------------------*/
+  SCB_EnableICache();
+
+  /* Enable D-Cache---------------------------------------------------------*/
+  SCB_EnableDCache();
 
 /* USER CODE BEGIN Boot_Mode_Sequence_1 */
   /* Wait until CPU2 boots and enters in stop mode or timeout*/
@@ -154,7 +159,6 @@ Error_Handler();
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
-  MX_USB_OTG_FS_PCD_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   // Put UART peripheral in reception process
@@ -180,7 +184,7 @@ Error_Handler();
   HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
 
   if(rxDataBuffer[8191] != 0 && (processed == 0)){
-	  byte2float(rxDataBuffer, processedData, 2*frameSize);
+	  byte2float(rxDataBuffer, processedData);
   }
 
   // HRTimer enable
@@ -202,13 +206,16 @@ Error_Handler();
 	}
 	HAL_Delay(2000);
 	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, instAbs, 2*frameSize);
+	float2byte(txDataBuffer, instAbs);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
 	}
+
+	HAL_Delay(2000);
 	/*****************************************************************************************************/
+
 	// Instantaneous phase value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_phase(&processedData[0], &instPhase[0]);
@@ -220,11 +227,16 @@ Error_Handler();
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
 	}
+	HAL_Delay(2000);
 	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, unwrappedPhase, 2*frameSize);
+	float2byte(txDataBuffer, instPhase);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
+		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
 	}
+
+	HAL_Delay(2000);
 	/*****************************************************************************************************/
 	// Instantaneous frequency value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -236,13 +248,15 @@ Error_Handler();
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
 	}
+	HAL_Delay(2000);
 	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, instFreq, 2*frameSize);
+	float2byte(txDataBuffer, instFreq);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
 	}
+	HAL_Delay(2000);
 	/*****************************************************************************************************/
 	// Instantaneous centered normalized absolute value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -254,13 +268,15 @@ Error_Handler();
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
 	}
+	HAL_Delay(2000);
 	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, instCNA, 2*frameSize);
+	float2byte(txDataBuffer, instCNA);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
 		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
 	}
+	HAL_Delay(2000);
 	/*****************************************************************************************************/
 #ifdef MEAN
 	// Mean
@@ -435,10 +451,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 4;
@@ -470,16 +485,12 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_USART3|RCC_PERIPHCLK_USB;
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_USART3;
   PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_HSI;
-  PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_HSI48;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
     Error_Handler();
   }
-  /** Enable USB Voltage detector
-  */
-  HAL_PWREx_EnableUSBVoltageDetector();
 }
 
 /* USER CODE BEGIN 4 */
@@ -493,9 +504,9 @@ void resetDataBuffer(uint8_t *dataBuffer){
 		dataBuffer[i] = 0;
 	}
 }
-void byte2float(uint8_t *rxDataBuffer, float32_t *processedData, uint16_t arraySize){
+void byte2float(uint8_t *rxDataBuffer, float *processedData){
 	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
-	for(int i = 0; i < arraySize*4; i = i + 4){
+	for(int i = 0; i < 2*frameSize; i = i + 4){
 		memcpy(&processedData[i / 4], &rxDataBuffer[i], 4);
 	}
 	processed = 1;
@@ -504,9 +515,9 @@ void byte2float(uint8_t *rxDataBuffer, float32_t *processedData, uint16_t arrayS
 	HAL_Delay(500);
 	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
 }
-void float2byte(uint8_t *txDataBuffer, float *processedData, uint16_t arraySize){
+void float2byte(uint8_t *txDataBuffer, float *processedData){
 	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
-	for(int i = 0; i < arraySize*4; i = i + 4){
+	for(int i = 0; i < 2*frameSize; i = i + 4){
 		memcpy(&txDataBuffer[i], &processedData[i / 4], 4);
 	}
 	processed = 1;
@@ -515,7 +526,7 @@ void float2byte(uint8_t *txDataBuffer, float *processedData, uint16_t arraySize)
 	HAL_Delay(500);
 	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
 }
-void echoReceived(float *processedBuffer, char *transmitBuffer){
+void echoReceived(float32_t *processedBuffer, char *transmitBuffer){
 	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
 	for(int i = 0; i < 2048; i = i + 2){
 		reset_buffer(&transmitBuffer[0]);

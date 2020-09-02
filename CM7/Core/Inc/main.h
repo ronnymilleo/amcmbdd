@@ -56,9 +56,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-void reset_buffer(char *buffer);
-void byte2float(uint8_t *receiveBuffer, float *processedBuffer, uint16_t arraySize);
-void echoReceived(float *processedBuffer, char *transmitBuffer);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
