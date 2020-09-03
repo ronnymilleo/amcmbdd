@@ -72,9 +72,6 @@ union rxData
 } rxBuffer;
 uint8_t received = 0;
 uint8_t processed = 0;
-uint8_t rxDataBuffer[8192];
-uint8_t txDataBuffer[8192];
-float processedData[2048];
 char txStringBuffer[50] = {'\0'};
 __IO ITStatus UartReady = RESET;
 /* USER CODE END PV */
@@ -187,14 +184,14 @@ HSEM notification */
 	// Wait for message
 	while (UartReady != SET)
 	{
-		blink_green();
-		blink_green();
 		HAL_Delay(500);
+		blink_green();
+		blink_green();
 	}
 	UartReady = RESET;
 	HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
 
-	if(rxDataBuffer[8191] != 0 && (processed == 0)){
+	if(rxBuffer.bytes[8191] != 0 && (processed == 0)){
 		HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_SET);
 	}
 
@@ -220,7 +217,6 @@ HSEM notification */
 		UartReady = RESET;
 	}
 	HAL_Delay(1000);
-	resetDataBuffer(txDataBuffer);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
 		while(UartReady != SET){
