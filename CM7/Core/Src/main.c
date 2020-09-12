@@ -64,7 +64,7 @@ union inst
 {
 	float32_t number[1024];
 	uint8_t bytes[4096];
-} instAbs;
+} instAbs, instPhase, instUnwrappedPhase, instFreq, instCNAbs;
 union rxData
 {
 	float32_t number[2048];
@@ -235,62 +235,151 @@ HSEM notification */
 		UartReady = RESET;
 	}
 
-	/*
+	blink_orange_slow();
+	blink_orange_slow();
+
 	// Instantaneous phase value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	inst_phase(&processedData[0], &instPhase[0]);
-	unwrap(&instPhase[0], &unwrappedPhase[0]);
+	inst_phase(&rxBuffer.number[0], &instPhase.number[0]);
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
 	reset_buffer(&txStringBuffer[0]);
-	sprintf(&txStringBuffer[0], "Inst phase counter = %ld\r\n", counter);
+	sprintf(&txStringBuffer[0], "Inst phase counter = %ld\r\n&", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
-	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, instPhase);
+	HAL_Delay(1000);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 10000);
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &instPhase.bytes[0], 4096);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txTail[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
+
+	blink_orange_slow();
+	blink_orange_slow();
+
+	// Instantaneous unwrapped phase value
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	inst_phase(&rxBuffer.number[0], &instPhase.number[0]);
+	unwrap(&instPhase.number[0], &instUnwrappedPhase.number[0]);
+	counter = __HAL_TIM_GET_COUNTER(&htim2);
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Inst unwrapped phase counter = %ld\r\n&", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+	HAL_Delay(1000);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &instUnwrappedPhase.bytes[0], 4096);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txTail[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+
+	blink_orange_slow();
+	blink_orange_slow();
 
 	// Instantaneous frequency value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	inst_frequency(&processedData[0], &instFreq[0]);
+	inst_frequency(&rxBuffer.number[0], &instFreq.number[0]);
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
 	reset_buffer(&txStringBuffer[0]);
-	sprintf(&txStringBuffer[0], "Inst freq counter = %ld\r\n", counter);
+	sprintf(&txStringBuffer[0], "Inst freq counter = %ld\r\n&", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
-	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, instFreq);
+	HAL_Delay(1000);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000); //1023
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &instFreq.bytes[0], 4096);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txTail[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
+
+	blink_orange_slow();
+	blink_orange_slow();
 
 	// Instantaneous centered normalized absolute value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	inst_centralized_normalized_absolute(&processedData[0], &instCNA[0]);
+	inst_centralized_normalized_absolute(&rxBuffer.number[0], &instCNAbs.number[0]);
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
 	reset_buffer(&txStringBuffer[0]);
-	sprintf(&txStringBuffer[0], "Inst CNA counter = %ld\r\n&", counter);
+	sprintf(&txStringBuffer[0], "Inst CN abs counter = %ld\r\n&", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txStringBuffer[0], sizeof(txStringBuffer), 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
-	resetDataBuffer(txDataBuffer);
-	float2byte(txDataBuffer, instCNA);
+	HAL_Delay(1000);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txHead[0], 4, 100);
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txDataBuffer[0], 4096, 2000);
-		HAL_UART_Transmit(&huart3, (uint8_t*) &txTail[0], 4, 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &instCNAbs.bytes[0], 4096);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txTail[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
-	*/
+
 	/*****************************************************************************************************/
 #ifdef MEAN
 	// Mean
@@ -449,7 +538,7 @@ void SystemClock_Config(void)
 	HAL_PWREx_ConfigSupply(PWR_DIRECT_SMPS_SUPPLY);
 	/** Configure the main internal regulator output voltage
 	 */
-	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
 	while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 	/** Initializes the RCC Oscillators according to the specified parameters
@@ -461,7 +550,7 @@ void SystemClock_Config(void)
 	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
 	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
 	RCC_OscInitStruct.PLL.PLLM = 4;
-	RCC_OscInitStruct.PLL.PLLN = 60;
+	RCC_OscInitStruct.PLL.PLLN = 50;
 	RCC_OscInitStruct.PLL.PLLP = 2;
 	RCC_OscInitStruct.PLL.PLLQ = 2;
 	RCC_OscInitStruct.PLL.PLLR = 2;
@@ -485,7 +574,7 @@ void SystemClock_Config(void)
 	RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV2;
 	RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV2;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
 	{
 		Error_Handler();
 	}
@@ -587,7 +676,7 @@ void float2byte(uint8_t *txDataBuffer, float *processedData){
 	HAL_Delay(500);
 	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
 }
-*/
+ */
 void echoReceived(float32_t *processedBuffer, char *transmitBuffer){
 	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
 	for(int i = 0; i < 2048; i = i + 2){

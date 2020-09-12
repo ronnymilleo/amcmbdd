@@ -6,8 +6,8 @@
  */
 
 #include "functions.h"
+#include "math.h"
 
-static float32_t pi = 3.141592654f;
 extern uint16_t frameSize;
 
 // Preprocessing
@@ -23,7 +23,7 @@ void inst_absolute(float32_t in[], float32_t out[]){
 void inst_phase(float32_t in[], float32_t out[]){
 	int j = 0;
 	for(int i = 0; i < 2*frameSize; i = i + 2){
-		out[j] = atan2(in[i+1], in[i]);
+		out[j] = atan2f(in[i+1], in[i]);
 		j++;
 	}
 }
@@ -48,10 +48,12 @@ void unwrap(float32_t in[], float32_t out[]){
 	yout((i+1),:)=u(i+1)+(2*pi*k); % add 2*pi*k to the last element of the input
 	*/
 	uint16_t k = 0;
-	float32_t alpha = pi;
+	float32_t alpha = M_PI;
+	float32_t diff = 0.0f;
 	for(int i = 0; i < (frameSize - 1); i++){
-		out[i] = in[i] + 2*pi*k;
-		if(abs(in[i+1] - in[i]) > abs(alpha)){
+		out[i] = in[i] + 2*M_PI*k;
+		diff = fabsf(in[i+1] - in[i]);
+		if(diff > alpha){
 			if(in[i+1] < in[i]){
 				k++;
 			} else {
@@ -59,25 +61,19 @@ void unwrap(float32_t in[], float32_t out[]){
 			}
 		}
 	}
-	out[frameSize-1] = in[frameSize-1] + 2*pi*k;
+	out[frameSize-1] = in[frameSize-1] + 2*M_PI*k;
 }
 
 void inst_frequency(float32_t in[], float32_t out[]){
-	float32_t *inst_phase, *unwrapped_phase;
-	inst_phase = (float32_t *) malloc(frameSize * sizeof(float32_t));
-	unwrapped_phase = (float32_t *) malloc(frameSize * sizeof(float32_t));
-	int j = 0;
-	for(int i = 0; i < 2*frameSize; i = i + 2){
-		inst_phase[j] = atan2(in[i], in[i+1]);
-		j++;
+	float32_t phase[1024] = {0};
+	float32_t unwrapped_phase[1024] = {0};
+	float32_t C = 1 / M_TWOPI;
+	inst_phase(&in[0], &phase[0]);
+	unwrap(&phase[0], &unwrapped_phase[0]);
+	for(int i = 0; i < (frameSize-1); i++){
+		out[i] = C*(unwrapped_phase[i + 1] - unwrapped_phase[i]);
 	}
-	unwrap(inst_phase, unwrapped_phase);
-	for(int i = 0; i < frameSize - 1; i++){
-		out[i] = (1/(2*pi))*(unwrapped_phase[i+1] - unwrapped_phase[i]);
-	}
-	out[frameSize - 1] = (1/(2*pi))*(0 - unwrapped_phase[frameSize - 1]);
-	free(inst_phase);
-	free(unwrapped_phase);
+	out[frameSize - 1] = 0;
 }
 
 void inst_centralized_normalized_absolute(float32_t in[], float32_t out[]){
