@@ -6,11 +6,11 @@
 C_SRCS += \
 C:/Users/ronny/STM32CubeIDE/mestrado/amcmbdd/Common/Src/system_stm32h7xx_dualcore_boot_cm4_cm7.c 
 
-OBJS += \
-./Common/Src/system_stm32h7xx_dualcore_boot_cm4_cm7.o 
-
 C_DEPS += \
 ./Common/Src/system_stm32h7xx_dualcore_boot_cm4_cm7.d 
+
+OBJS += \
+./Common/Src/system_stm32h7xx_dualcore_boot_cm4_cm7.o 
 
 
 # Each subdirectory must supply rules for building sources it contributes

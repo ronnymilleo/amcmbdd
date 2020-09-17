@@ -5,10 +5,9 @@
  *      Author: ronny
  */
 
-#include "functions.h"
+#include <functions.hpp>
+#include <main.hpp>
 #include "math.h"
-
-extern uint16_t frameSize;
 
 // Preprocessing
 

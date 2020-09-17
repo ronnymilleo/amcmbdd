@@ -18,7 +18,8 @@
  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include "main.h"
+#include <functions.hpp>
+#include <main.hpp>
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -31,8 +32,13 @@
 #include "arm_nnsupportfunctions.h"
 #include "arm_nn_tables.h"
 #include "arm_nnfunctions.h"
-#include "functions.h"
-
+#include "tensorflow/lite/micro/all_ops_resolver.h"
+#include "tensorflow/lite/micro/micro_error_reporter.h"
+#include "tensorflow/lite/micro/micro_interpreter.h"
+#include "tensorflow/lite/schema/schema_generated.h"
+#include "tensorflow/lite/version.h"
+#include "tensorflow/lite/micro/examples/hello_world/model.h"
+#include "tensorflow/lite/micro/testing/micro_test.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -544,6 +550,8 @@ HSEM notification */
 		}
 		UartReady = RESET;
 	}
+
+
 #ifdef GMAX
 	// GMAX
 	// Reset counter
