@@ -64,7 +64,7 @@ union inst
 {
 	float32_t number[1024];
 	uint8_t bytes[4096];
-} instAbs, instPhase, instUnwrappedPhase, instFreq, instCNAbs;
+} instAbs, instPhase, instAbsPhase, instUnwrappedPhase, instFreq, instAbsFreq, instCNAbs;
 union rxData
 {
 	float32_t number[2048];
@@ -107,16 +107,9 @@ int main(void)
 	/* USER CODE BEGIN 1 */
 	// char hello_world[50] = {"\r\nHello World!\r\n"};
 	uint32_t counter = 0;
-	// float32_t instAbs[1024];
-
-	//float32_t instPhase[1024];
-	//float32_t instFreq[1024];
-	//float32_t instCNA[1024];
-	//float32_t unwrappedPhase[1024];
-	// float32_t mean_value = 0.0f, mean_of_squared_value = 0.0f, std_dev_value = 0.0f, max = 0.0f;
+	float32_t mean_of_squared_value = 0.0f, std_dev_value = 0.0f;
 	// float32_t moment = 0.0f, var = 0.0f;
 	// uint32_t power = 2, max_index;
-
 	/* USER CODE END 1 */
 
 	/* USER CODE BEGIN Boot_Mode_Sequence_0 */
@@ -381,69 +374,176 @@ HSEM notification */
 	}
 
 	/*****************************************************************************************************/
-#ifdef MEAN
-	// Mean
-	// Reset counter
-	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	// Processing
-	mean(processedBuffer, &mean_value, &length);
-	// Get counter
-	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	// Transmission routine
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "Mean = %f\r\n", mean_value);
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
-	}
-	// Transmission routine
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
-	}
-#endif
-#ifdef MEAN_SQUARED
 	// Mean of squared
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	// Processing
-	mean_of_squared(processedBuffer, &mean_of_squared_value, &length);
+	mean_of_squared(&rxBuffer.number[0], &mean_of_squared_value);
 	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "Mean of squared = %f\r\n", mean_of_squared_value);
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Mean of squared = %f\r\n", mean_of_squared_value);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
 	// Transmission routine
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Cycles counter = %ld\r\n", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
-#endif
-#ifdef STD_DEV
-	// Standard deviation
+
+	// Standard deviation of the absolute instantaneous phase
 	// Reset counter
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	// Processing
-	std_dev(processedBuffer, &std_dev_value, &length);
+	// Absolute instantaneous phase
+	inst_absolute(&instPhase.number[0], &instAbsPhase.number[0]);
+	std_dev(&instAbsPhase.number[0], &std_dev_value);
 	// Get counter
 	counter = __HAL_TIM_GET_COUNTER(&htim2);
 	// Transmission routine
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "Standard deviation = %f\r\n", std_dev_value);
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Standard deviation = %f\r\n", std_dev_value);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
 	// Transmission routine
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Cycles counter = %ld\r\n", counter);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
 	}
-#endif
+
+	// Standard deviation of the instantaneous phase
+	// Reset counter
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
+	std_dev(&instPhase.number[0], &std_dev_value);
+	// Get counter
+	counter = __HAL_TIM_GET_COUNTER(&htim2);
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Standard deviation = %f\r\n", std_dev_value);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+
+	// Standard deviation of the absolute instantaneous frequency
+	// Reset counter
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
+	inst_absolute(&instFreq.number[0], &instAbsFreq.number[0]);
+	std_dev(&instAbsFreq.number[0], &std_dev_value);
+	// Get counter
+	counter = __HAL_TIM_GET_COUNTER(&htim2);
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Standard deviation = %f\r\n", std_dev_value);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+
+	// Standard deviation of the instantaneous frequency
+	// Reset counter
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
+	std_dev(&instFreq.number[0], &std_dev_value);
+	// Get counter
+	counter = __HAL_TIM_GET_COUNTER(&htim2);
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Standard deviation = %f\r\n", std_dev_value);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+
+	// Standard deviation of the centralized normalized absolute amplitude
+	// Reset counter
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	// Processing
+	std_dev(&instCNAbs.number[0], &std_dev_value);
+	// Get counter
+	counter = __HAL_TIM_GET_COUNTER(&htim2);
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Standard deviation = %f\r\n", std_dev_value);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+	// Transmission routine
+	reset_buffer(&txStringBuffer[0]);
+	sprintf(&txStringBuffer[0], "Cycles counter = %ld\r\n", counter);
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
 #ifdef GMAX
 	// GMAX
 	// Reset counter
@@ -456,27 +556,6 @@ HSEM notification */
 	reset_buffer(&transmitBuffer[0]);
 	sprintf(&transmitBuffer[0], "Gmax = %f\r\n", max);
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
-	}
-	// Transmission routine
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "Cycles counter = %ld\r\n", counter);
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
-	}
-#endif
-#ifdef VAR
-	// Variance
-	// Reset counter
-	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	// Processing
-	variance(processedBuffer, &var, &length);
-	// Get counter
-	counter = __HAL_TIM_GET_COUNTER(&htim2);
-	// Transmission routine
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "Variance = %f\r\n", var);
-	if(HAL_UART_GetState(&huart3) == HAL_UART_STATE_READY){
 		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], sizeof(transmitBuffer), 100);
 	}
 	// Transmission routine

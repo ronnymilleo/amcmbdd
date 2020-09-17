@@ -95,22 +95,22 @@ void inst_centralized_normalized_absolute(float32_t in[], float32_t out[]){
 	free(normalized);
 }
 
-void mean(float32_t in[], float32_t *out, uint32_t *length) {
-	arm_mean_f32(&in[0], *length, out);
+void mean(float32_t in[], float32_t *out) {
+	arm_mean_f32(&in[0], frameSize, out);
 }
 
-void mean_of_squared(float32_t in[], float32_t *out, uint32_t *length) {
+void mean_of_squared(float32_t in[], float32_t *out) {
 	float32_t result;
-	arm_power_f32(&in[0], *length, &result);
-	*out = result / (float32_t) *length;
+	arm_power_f32(&in[0], frameSize, &result);
+	*out = result / (float32_t) frameSize;
 }
 
-void std_dev(float32_t in[], float32_t *out, uint32_t *length) {
-	arm_std_f32(&in[0], *length, out);
+void std_dev(float32_t in[], float32_t *out) {
+	arm_std_f32(&in[0], frameSize, out);
 }
 
-void variance(float32_t in[], float32_t *out, uint32_t *length) {
-	arm_var_f32(&in[0], *length, out);
+void variance(float32_t in[], float32_t *out) {
+	arm_var_f32(&in[0], frameSize, out);
 }
 
 void gmax(float32_t src[], uint32_t *length, float32_t *maxValue, uint32_t *maxValueIndex){
