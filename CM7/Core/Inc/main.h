@@ -35,6 +35,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include "fully_connected.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

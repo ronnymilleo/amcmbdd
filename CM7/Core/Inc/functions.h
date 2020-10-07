@@ -7,6 +7,7 @@
 
 #include "arm_math.h"
 #include "arm_const_structs.h"
+#include "arm_nnfunctions.h"
 #include <stdlib.h>
 
 void inst_absolute(float32_t in[], float32_t out[]);

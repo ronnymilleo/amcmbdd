@@ -5,8 +5,8 @@
  *      Author: ronny
  */
 
-#include <functions.hpp>
-#include <main.hpp>
+#include <functions.h>
+#include <main.h>
 #include "math.h"
 
 // Preprocessing
@@ -150,3 +150,23 @@ void central_moment(float32_t src[], uint32_t *length, uint32_t *power, float32_
 	free(sub);
 	free(mult);
 }
+
+
+// Neural networks
+
+void quantize_weights(){
+
+}
+/*
+min_wt = weight.min()
+max_wt = weight.max()
+#find number of integer bits to represent this range
+int_bits = int(np.ceil(np.log2(max(abs(min_wt),abs(max_wt)))))
+frac_bits = 7-int_bits #remaining bits are fractional bits (1-bit for sign)
+#floating point weights are scaled and rounded to [-128,127], which are used in
+#the fixed-point operations on the actual hardware (i.e., microcontroller)
+quant_weight = np.round(weight*(2**frac_bits))
+#To quantify the impact of quantized weights, scale them back to
+# original range to run inference using quantized weights
+weight = quant_weight/(2**frac_bits)
+*/
