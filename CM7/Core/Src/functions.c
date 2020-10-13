@@ -196,56 +196,307 @@ void kurtosis_of_abs_freq(float32_t in[], float32_t *out, uint32_t blockSize){
 
 // Central moment definition
 // Mpq = E[x^(p-q).x*^q]
-void complex_moment(float32_t in[], float32_t *out, uint8_t p, uint8_t q){
-	//m20 = np.mean(np.power(signal_input, 2 - 0) * np.power(np.conj(signal_input), 0))
+void moment20(float32_t in[], float32_t *out){
 	float32_t in_cp[frameSize*2];
-	float32_t in_sq[frameSize*2];
-	float32_t in_mag[frameSize];
+	float32_t m20[frameSize*2]; // in^2
+	float32_t m20_real = 0, m20_imag = 0, m20_real_mean = 0, m20_imag_mean = 0;
 	arm_copy_f32(&in[0], &in_cp[0], frameSize*2);
-	arm_cmplx_mult_cmplx_f32(&in[0], &in_cp[0], &in_sq[0], frameSize);
-	arm_cmplx_mag_f32(&in_sq[0], &in_mag[0], frameSize);
-	arm_mean_f32(&in_mag[0], frameSize, out);
-	/*
-	float32_t x, x_conj, *temp, mean;
-	temp = (float32_t *) malloc(frameSize * sizeof(float32_t));
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_cp[0], &m20[0], frameSize);
 	for(int i = 0; i < frameSize*2; i+=2){
-		x = powf(in[i] + in[i+1], p - q);
-		x_conj = powf(in[i] - in[i+1], q);
-		temp[i] = x * x_conj;
+		m20_real += m20[i];
+		m20_imag += m20[i+1];
 	}
-	arm_mean_f32(&temp[0], frameSize, &mean);
-	*out = mean;
-	free(temp);
-	*/
+	m20_real_mean = m20_real / frameSize;
+	m20_imag_mean = m20_imag / frameSize;
+	*out = sqrtf(m20_real_mean*m20_real_mean + m20_imag_mean*m20_imag_mean);
+}
+
+void moment21(float32_t in[], float32_t *out){
+	float32_t in_conj[frameSize*2];
+	float32_t m21[frameSize*2];
+	float32_t in_mag[frameSize];
+	arm_cmplx_conj_f32(&in[0], &in_conj[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_conj[0], &m21[0], frameSize);
+	arm_cmplx_mag_f32(&m21[0], &in_mag[0], frameSize);
+	arm_mean_f32(&in_mag[0], frameSize, out);
+	// Calculating the mean after the absolute value here works because there
+	// is no imaginary part in the number M21, different from M20
+}
+
+void moment22(float32_t in[], float32_t *out){
+	float32_t in_conj[frameSize*2];
+	float32_t in_conj_cp[frameSize*2];
+	float32_t m22[frameSize*2]; // in^2
+	float32_t m22_real = 0, m22_imag = 0, m22_real_mean = 0, m22_imag_mean = 0;
+	arm_cmplx_conj_f32(&in[0], &in_conj[0], frameSize);
+	arm_copy_f32(&in_conj[0], &in_conj_cp[0], frameSize*2);
+	arm_cmplx_mult_cmplx_f32(&in_conj[0], &in_conj_cp[0], &m22[0], frameSize);
+	for(int i = 0; i < frameSize*2; i+=2){
+		m22_real += m22[i];
+		m22_imag += m22[i+1];
+	}
+	m22_real_mean = m22_real / frameSize;
+	m22_imag_mean = m22_imag / frameSize;
+	*out = sqrtf(m22_real_mean*m22_real_mean + m22_imag_mean*m22_imag_mean);
+}
+
+void moment40(float32_t in[], float32_t *out){
+	float32_t in_cp[frameSize*2];
+	float32_t m20[frameSize*2]; // in^2
+	float32_t m30[frameSize]; // in^3
+	float32_t m40[frameSize]; // in^4
+	float32_t m40_real = 0.0f, m40_imag = 0.0f;
+	float32_t m40_real_mean = 0.0f, m40_imag_mean = 0.0f;
+	arm_copy_f32(&in[0], &in_cp[0], frameSize*2);
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_cp[0], &m20[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m20[0], &in_cp[0], &m30[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m30[0], &in_cp[0], &m40[0], frameSize);
+	for(int i = 0; i < frameSize*2; i+=2){
+		m40_real += m40[i];
+		m40_imag += m40[i+1];
+	}
+	m40_real_mean = m40_real / frameSize;
+	m40_imag_mean = m40_imag / frameSize;
+	*out = sqrtf(m40_real_mean*m40_real_mean + m40_imag_mean*m40_imag_mean);
+}
+
+void moment41(float32_t in[], float32_t *out){
+	float32_t in_cp[frameSize*2];
+	float32_t in_conj[frameSize*2];
+	float32_t m20[frameSize*2]; // in^2
+	float32_t m30[frameSize]; // in^3
+	float32_t m41[frameSize]; // in^4
+	float32_t m41_real = 0.0f, m41_imag = 0.0f;
+	float32_t m41_real_mean = 0.0f, m41_imag_mean = 0.0f;
+	arm_copy_f32(&in[0], &in_cp[0], frameSize*2);
+	arm_cmplx_conj_f32(&in[0], &in_conj[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_cp[0], &m20[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m20[0], &in_cp[0], &m30[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m30[0], &in_conj[0], &m41[0], frameSize);
+	for(int i = 0; i < frameSize*2; i+=2){
+		m41_real += m41[i];
+		m41_imag += m41[i+1];
+	}
+	m41_real_mean = m41_real / frameSize;
+	m41_imag_mean = m41_imag / frameSize;
+	*out = sqrtf(m41_real_mean*m41_real_mean + m41_imag_mean*m41_imag_mean);
+}
+
+void moment42(float32_t in[], float32_t *out){
+	float32_t in_cp[frameSize*2];
+	float32_t in_conj[frameSize*2];
+	float32_t m20[frameSize*2]; // in^2
+	float32_t m31[frameSize]; // in^3
+	float32_t m42[frameSize]; // in^4
+	float32_t m42_real = 0.0f, m42_imag = 0.0f;
+	float32_t m42_real_mean = 0.0f, m42_imag_mean = 0.0f;
+	arm_copy_f32(&in[0], &in_cp[0], frameSize*2);
+	arm_cmplx_conj_f32(&in[0], &in_conj[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_cp[0], &m20[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m20[0], &in_conj[0], &m31[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m31[0], &in_conj[0], &m42[0], frameSize);
+	for(int i = 0; i < frameSize*2; i+=2){
+		m42_real += m42[i];
+		m42_imag += m42[i+1];
+	}
+	m42_real_mean = m42_real / frameSize;
+	m42_imag_mean = m42_imag / frameSize;
+	*out = sqrtf(m42_real_mean*m42_real_mean + m42_imag_mean*m42_imag_mean);
+}
+
+void moment43(float32_t in[], float32_t *out){
+	float32_t in_cp[frameSize*2];
+	float32_t in_conj[frameSize*2];
+	float32_t m21[frameSize*2]; // in^2
+	float32_t m32[frameSize]; // in^3
+	float32_t m43[frameSize]; // in^4
+	float32_t m43_real = 0.0f, m43_imag = 0.0f;
+	float32_t m43_real_mean = 0.0f, m43_imag_mean = 0.0f;
+	arm_copy_f32(&in[0], &in_cp[0], frameSize*2);
+	arm_cmplx_conj_f32(&in[0], &in_conj[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_conj[0], &m21[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m21[0], &in_conj[0], &m32[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m32[0], &in_conj[0], &m43[0], frameSize);
+	for(int i = 0; i < frameSize*2; i+=2){
+		m43_real += m43[i];
+		m43_imag += m43[i+1];
+	}
+	m43_real_mean = m43_real / frameSize;
+	m43_imag_mean = m43_imag / frameSize;
+	*out = sqrtf(m43_real_mean*m43_real_mean + m43_imag_mean*m43_imag_mean);
+}
+
+void moment60(float32_t in[], float32_t *out){
+	float32_t in_cp[frameSize*2];
+	float32_t m20[frameSize*2]; // in^2
+	float32_t m30[frameSize]; // in^3
+	float32_t m40[frameSize]; // in^4
+	float32_t m50[frameSize]; // in^5
+	float32_t m60[frameSize]; // in^6
+	float32_t m60_real = 0.0f, m60_imag = 0.0f;
+	float32_t m60_real_mean = 0.0f, m60_imag_mean = 0.0f;
+	arm_copy_f32(&in[0], &in_cp[0], frameSize*2);
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_cp[0], &m20[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m20[0], &in_cp[0], &m30[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m30[0], &in_cp[0], &m40[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m40[0], &in_cp[0], &m50[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m50[0], &in_cp[0], &m60[0], frameSize);
+	for(int i = 0; i < frameSize*2; i+=2){
+		m60_real += m60[i];
+		m60_imag += m60[i+1];
+	}
+	m60_real_mean = m60_real / frameSize;
+	m60_imag_mean = m60_imag / frameSize;
+	*out = sqrtf(m60_real_mean*m60_real_mean + m60_imag_mean*m60_imag_mean);
+}
+
+void moment61(float32_t in[], float32_t *out){
+	float32_t in_cp[frameSize*2];
+	float32_t in_conj[frameSize*2];
+	float32_t m20[frameSize*2]; // in^2
+	float32_t m30[frameSize]; // in^3
+	float32_t m40[frameSize]; // in^4
+	float32_t m50[frameSize]; // in^5
+	float32_t m61[frameSize]; // in^6
+	float32_t m61_real = 0.0f, m61_imag = 0.0f;
+	float32_t m61_real_mean = 0.0f, m61_imag_mean = 0.0f;
+	arm_copy_f32(&in[0], &in_cp[0], frameSize*2);
+	arm_cmplx_conj_f32(&in[0], &in_conj[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_cp[0], &m20[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m20[0], &in_cp[0], &m30[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m30[0], &in_cp[0], &m40[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m40[0], &in_cp[0], &m50[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m50[0], &in_conj[0], &m61[0], frameSize);
+	for(int i = 0; i < frameSize*2; i+=2){
+		m61_real += m61[i];
+		m61_imag += m61[i+1];
+	}
+	m61_real_mean = m61_real / frameSize;
+	m61_imag_mean = m61_imag / frameSize;
+	*out = sqrtf(m61_real_mean*m61_real_mean + m61_imag_mean*m61_imag_mean);
+}
+
+void moment62(float32_t in[], float32_t *out){
+	float32_t in_cp[frameSize*2];
+	float32_t in_conj[frameSize*2];
+	float32_t m20[frameSize*2]; // in^2
+	float32_t m30[frameSize]; // in^3
+	float32_t m40[frameSize]; // in^4
+	float32_t m51[frameSize]; // in^5
+	float32_t m62[frameSize]; // in^6
+	float32_t m62_real = 0.0f, m62_imag = 0.0f;
+	float32_t m62_real_mean = 0.0f, m62_imag_mean = 0.0f;
+	arm_copy_f32(&in[0], &in_cp[0], frameSize*2);
+	arm_cmplx_conj_f32(&in[0], &in_conj[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_cp[0], &m20[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m20[0], &in_cp[0], &m30[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m30[0], &in_cp[0], &m40[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m40[0], &in_conj[0], &m51[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m51[0], &in_conj[0], &m62[0], frameSize);
+	for(int i = 0; i < frameSize*2; i+=2){
+		m62_real += m62[i];
+		m62_imag += m62[i+1];
+	}
+	m62_real_mean = m62_real / frameSize;
+	m62_imag_mean = m62_imag / frameSize;
+	*out = sqrtf(m62_real_mean*m62_real_mean + m62_imag_mean*m62_imag_mean);
+}
+
+void moment63(float32_t in[], float32_t *out){
+	float32_t in_cp[frameSize*2];
+	float32_t in_conj[frameSize*2];
+	float32_t m20[frameSize*2]; // in^2
+	float32_t m30[frameSize]; // in^3
+	float32_t m41[frameSize]; // in^4
+	float32_t m52[frameSize]; // in^5
+	float32_t m63[frameSize]; // in^6
+	float32_t m63_real = 0.0f, m63_imag = 0.0f;
+	float32_t m63_real_mean = 0.0f, m63_imag_mean = 0.0f;
+	arm_copy_f32(&in[0], &in_cp[0], frameSize*2);
+	arm_cmplx_conj_f32(&in[0], &in_conj[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&in[0], &in_cp[0], &m20[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m20[0], &in_cp[0], &m30[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m30[0], &in_conj[0], &m41[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m41[0], &in_conj[0], &m52[0], frameSize);
+	arm_cmplx_mult_cmplx_f32(&m52[0], &in_conj[0], &m63[0], frameSize);
+	for(int i = 0; i < frameSize*2; i+=2){
+		m63_real += m63[i];
+		m63_imag += m63[i+1];
+	}
+	m63_real_mean = m63_real / frameSize;
+	m63_imag_mean = m63_imag / frameSize;
+	*out = sqrtf(m63_real_mean*m63_real_mean + m63_imag_mean*m63_imag_mean);
 }
 
 // Features no 13, 14, 15, 16, 17, 18, 19, 20 and 21
 void cumulant_20(float32_t in[], float32_t *out){
-
+	moment20(&in[0], out);
 };
 void cumulant_21(float32_t in[], float32_t *out){
-
+	moment21(&in[0], out);
 };
-void cumulant_40(float32_t in[], float32_t *out){
 
+void cumulant_40(float32_t in[], float32_t *out){
+	float32_t m40, m20;
+	moment20(&in[0], &m20);
+	moment40(&in[0], &m40);
+	*out = fabsf(m40 - 3*m20*m20);
 };
 void cumulant_41(float32_t in[], float32_t *out){
-
+	float32_t m41, m20, m21;
+	moment41(&in[0], &m41);
+	moment20(&in[0], &m20);
+	moment21(&in[0], &m21);
+	*out = fabsf(m41 - 3*m20*m21);
 };
 void cumulant_42(float32_t in[], float32_t *out){
-
+	float32_t m42, m20, m21, temp;
+	moment42(&in[0], &m42);
+	moment20(&in[0], &m20);
+	moment21(&in[0], &m21);
+	temp = fabsf(m20);
+	*out = fabsf(m42 - temp*temp - 2*m21*m21);
 };
 void cumulant_60(float32_t in[], float32_t *out){
-
+	float32_t m60, m40, m20;
+	moment20(&in[0], &m20);
+	moment40(&in[0], &m40);
+	moment60(&in[0], &m60);
+	*out = fabsf(m60 - 15*m20*m40 + 30*m20*m20*m20);
 };
 void cumulant_61(float32_t in[], float32_t *out){
-
+	//M61 - 5 M21 M40 - 10 M20 M41 + 30 M20 M20 M21
+	float32_t m61, m21, m40, m20, m41;
+	moment20(&in[0], &m20);
+	moment21(&in[0], &m21);
+	moment40(&in[0], &m40);
+	moment41(&in[0], &m41);
+	moment61(&in[0], &m61);
+	*out = fabsf(m61 - 5*m21*m40 - 10*m20*m41 + 30*m20*m20*m21);
 };
 void cumulant_62(float32_t in[], float32_t *out){
-
+	// M62 - 6 M20 M42 - 8 M21 M41 - M22 M40 + 6 M20 M20 M22 + 24 M21 M21 M22
+	float32_t m62, m20, m42, m21, m41, m22, m40;
+	moment20(&in[0], &m20);
+	moment21(&in[0], &m21);
+	moment22(&in[0], &m22);
+	moment40(&in[0], &m40);
+	moment41(&in[0], &m41);
+	moment42(&in[0], &m42);
+	moment62(&in[0], &m62);
+	*out = fabsf(m62 - 6*m20*m42 - 8*m21*m41 - m22*m40 + 6*m20*m20*m22 + 24*m21*m21*m22);
 };
 void cumulant_63(float32_t in[], float32_t *out){
-
+	// M63 - 9 M21 M42 + 12 M21 M21 M21 - 3 M20 M43 - 3 M22 M41 + 18 M20 M21 M22
+	float32_t m63, m21, m42, m20, m43, m22, m41;
+	moment20(&in[0], &m20);
+	moment21(&in[0], &m21);
+	moment22(&in[0], &m22);
+	moment41(&in[0], &m41);
+	moment42(&in[0], &m42);
+	moment43(&in[0], &m43);
+	moment63(&in[0], &m63);
+	*out = fabsf(m63 - 9*m21*m42 + 12*m21*m21*m21 - 3*m20*m43 - 3*m22*m41 + 18*m20*m21*m22);
 };
 
 

@@ -123,7 +123,9 @@ int main(void)
 	{
 		float32_t number;
 		uint8_t bytes[4];
-	} ft0, ft1, ft2, ft3, ft4, ft5, ft6, ft7, ft8, ft9, ft10, ft11, ft12;
+	} ft0, ft1, ft2, ft3, ft4, ft5, ft6, ft7,
+	  ft8, ft9, ft10, ft11, ft12, ft13, ft14,
+	  ft15, ft16, ft17, ft18, ft19, ft20, ft21;
 	// float32_t moment = 0.0f, var = 0.0f;
 	// uint32_t power = 2, max_index;
 	/* USER CODE END 1 */
@@ -339,8 +341,62 @@ HSEM notification */
 	kurtosis_of_abs_freq(&instAbsFreq.number[0], &ft12.number, frameSize - 1);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_features(&ft12.bytes[0], &counter.bytes[0]);
-	/* USER CODE END 2 */
 
+	// Cumulant 20
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	cumulant_20(&rxBuffer.number[0], &ft13.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft13.bytes[0], &counter.bytes[0]);
+
+	// Cumulant 21
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	cumulant_21(&rxBuffer.number[0], &ft14.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft14.bytes[0], &counter.bytes[0]);
+
+	// Cumulant 40
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	cumulant_40(&rxBuffer.number[0], &ft15.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft15.bytes[0], &counter.bytes[0]);
+
+	// Cumulant 41
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	cumulant_41(&rxBuffer.number[0], &ft16.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft16.bytes[0], &counter.bytes[0]);
+
+	// Cumulant 42
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	cumulant_42(&rxBuffer.number[0], &ft17.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft17.bytes[0], &counter.bytes[0]);
+
+	// Cumulant 60
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	cumulant_60(&rxBuffer.number[0], &ft18.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft18.bytes[0], &counter.bytes[0]);
+
+	// Cumulant 61
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	cumulant_61(&rxBuffer.number[0], &ft19.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft19.bytes[0], &counter.bytes[0]);
+
+	// Cumulant 62
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	cumulant_62(&rxBuffer.number[0], &ft20.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft20.bytes[0], &counter.bytes[0]);
+
+	// Cumulant 63
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	cumulant_63(&rxBuffer.number[0], &ft21.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft21.bytes[0], &counter.bytes[0]);
+
+	/* USER CODE END 2 */
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	clear_leds();
