@@ -44,7 +44,7 @@
 #define HSEM_ID_0 (0U) /* HW semaphore 0*/
 #define IMAGE_SIZE 28 * 28
 #define FT_INPUT_VECTOR_SIZE 2048
-#define RX_DATA_SIZE 4096
+#define RX_DATA_SIZE FT_INPUT_VECTOR_SIZE*2
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -56,8 +56,7 @@
 
 /* USER CODE BEGIN PV */
 // Read-only variables go to FLASH memory
-const uint16_t frameSize = 1024;
-const uint16_t bufferSize = 8192;
+const uint16_t frameSize = FT_INPUT_VECTOR_SIZE;
 const uint8_t txHead[4] = {0xCA, 0xCA, 0xCA, 0xCA};
 const uint8_t txTail[4] = {0xF0, 0xF0, 0xF0, 0xF0};
 
@@ -70,7 +69,7 @@ union inst
 {
 	float32_t number[FT_INPUT_VECTOR_SIZE];
 	uint8_t bytes[FT_INPUT_VECTOR_SIZE*4];
-} instAbs, instPhase, instAbsPhase, instUnwrappedPhase, instFreq, instAbsFreq, instCNAbs;
+} instAbs, instPhase, instAbsPhase, instUnwrappedPhase, instFreq, instAbsFreq = {0}, instCNAbs, instAbsCNAbs;
 union rxData
 {
 	float32_t number[RX_DATA_SIZE];
@@ -97,7 +96,7 @@ void blink_green_slow();
 void reset_buffer(char *stringBuffer);
 void resetDataBuffer(uint8_t *dataBuffer);
 void transmit_features(uint8_t *value, uint8_t *counter);
-void transmit_array(uint8_t *array, uint16_t size);
+void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter);
 void echoReceived(float *processedBuffer, char *transmitBuffer);
 /* USER CODE END PFP */
 
@@ -124,7 +123,7 @@ int main(void)
 	{
 		float32_t number;
 		uint8_t bytes[4];
-	} ft1, ft2, ft3, ft4, ft5, ft6;
+	} ft0, ft1, ft2, ft3, ft4, ft5, ft6, ft7, ft8, ft9, ft10, ft11, ft12;
 	// float32_t moment = 0.0f, var = 0.0f;
 	// uint32_t power = 2, max_index;
 	/* USER CODE END 1 */
@@ -188,7 +187,7 @@ HSEM notification */
 	/* USER CODE BEGIN 2 */
 
 	// Put UART peripheral in reception process
-	if(HAL_UART_Receive_IT(&huart3, &rxBuffer.bytes[0], bufferSize) != HAL_OK)
+	if(HAL_UART_Receive_IT(&huart3, &rxBuffer.bytes[0], RX_DATA_SIZE*4) != HAL_OK)
 	{
 		Error_Handler();
 	}
@@ -215,20 +214,9 @@ HSEM notification */
 	/*****************************************************************************************************/
 	// Instantaneous absolute value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	inst_absolute(&rxBuffer.number[0], &instAbs.number[0]);
+	complex_inst_absolute(&rxBuffer.number[0], &instAbs.number[0]);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	// Transmission routine
-	reset_buffer(&txStringBuffer[0]);
-	sprintf(&txStringBuffer[0], "Inst abs counter = %ld\r\n&", counter.number);
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
-		while(UartReady != SET){
-			blink_red_fast();
-		}
-		UartReady = RESET;
-	}
-	HAL_Delay(1000);
-	transmit_array(&instAbs.bytes[0], 4096);
+	transmit_array(&instAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
 
 	blink_orange_slow();
 	blink_orange_slow();
@@ -237,18 +225,7 @@ HSEM notification */
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_phase(&rxBuffer.number[0], &instPhase.number[0]);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	// Transmission routine
-	reset_buffer(&txStringBuffer[0]);
-	sprintf(&txStringBuffer[0], "Inst phase counter = %ld\r\n&", counter.number);
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
-		while(UartReady != SET){
-			blink_red_fast();
-		}
-		UartReady = RESET;
-	}
-	HAL_Delay(1000);
-	transmit_array(&instPhase.bytes[0], 4096);
+	transmit_array(&instPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
 
 	blink_orange_slow();
 	blink_orange_slow();
@@ -258,18 +235,7 @@ HSEM notification */
 	inst_phase(&rxBuffer.number[0], &instPhase.number[0]);
 	unwrap(&instPhase.number[0], &instUnwrappedPhase.number[0]);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	// Transmission routine
-	reset_buffer(&txStringBuffer[0]);
-	sprintf(&txStringBuffer[0], "Inst unwrapped phase counter = %ld\r\n&", counter.number);
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
-		while(UartReady != SET){
-			blink_red_fast();
-		}
-		UartReady = RESET;
-	}
-	HAL_Delay(1000);
-	transmit_array(&instUnwrappedPhase.bytes[0], 4096);
+	transmit_array(&instUnwrappedPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
 
 	blink_orange_slow();
 	blink_orange_slow();
@@ -278,18 +244,7 @@ HSEM notification */
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_frequency(&rxBuffer.number[0], &instFreq.number[0]);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	// Transmission routine
-	reset_buffer(&txStringBuffer[0]);
-	sprintf(&txStringBuffer[0], "Inst freq counter = %ld\r\n&", counter.number);
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
-		while(UartReady != SET){
-			blink_red_fast();
-		}
-		UartReady = RESET;
-	}
-	HAL_Delay(1000);
-	transmit_array(&instFreq.bytes[0], 4096);
+	transmit_array(&instFreq.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
 
 	blink_orange_slow();
 	blink_orange_slow();
@@ -298,60 +253,92 @@ HSEM notification */
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_centralized_normalized_absolute(&rxBuffer.number[0], &instCNAbs.number[0]);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	// Transmission routine
-	reset_buffer(&txStringBuffer[0]);
-	sprintf(&txStringBuffer[0], "Inst CN abs counter = %ld\r\n&", counter.number);
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txStringBuffer[0], 50);
-		while(UartReady != SET){
-			blink_red_fast();
-		}
-		UartReady = RESET;
-	}
-	HAL_Delay(1000);
-	transmit_array(&instCNAbs.bytes[0], 4096);
+	transmit_array(&instCNAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
 
 	blink_orange_slow();
 	blink_orange_slow();
 
 	/*****************************************************************************************************/
-	// Mean of squared
+	// Standard deviation of the instantaneous phase
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	mean_of_squared(&rxBuffer.number[0], &ft1.number);
+	std_dev(&instPhase.number[0], &ft0.number);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft1.bytes[0], &counter.bytes[0]);
+	transmit_features(&ft0.bytes[0], &counter.bytes[0]);
 
 	// Standard deviation of the absolute instantaneous phase
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_absolute(&instPhase.number[0], &instAbsPhase.number[0]);
-	std_dev(&instAbsPhase.number[0], &ft2.number);
+	std_dev(&instAbsPhase.number[0], &ft1.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft1.bytes[0], &counter.bytes[0]);
+
+	// Standard deviation of the instantaneous frequency
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	std_dev(&instFreq.number[0], &ft2.number);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_features(&ft2.bytes[0], &counter.bytes[0]);
-
-	// Standard deviation of the instantaneous phase
-	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	std_dev(&instPhase.number[0], &ft3.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft3.bytes[0], &counter.bytes[0]);
 
 	// Standard deviation of the absolute instantaneous frequency
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_absolute(&instFreq.number[0], &instAbsFreq.number[0]);
-	std_dev(&instAbsFreq.number[0], &ft4.number);
+	std_dev(&instAbsFreq.number[0], &ft3.number);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft4.bytes[0], &counter.bytes[0]);
-
-	// Standard deviation of the instantaneous frequency
-	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	std_dev(&instFreq.number[0], &ft5.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft5.bytes[0], &counter.bytes[0]);
+	transmit_features(&ft3.bytes[0], &counter.bytes[0]);
 
 	// Standard deviation of the centralized normalized absolute amplitude
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	std_dev(&instCNAbs.number[0], &ft6.number);
+	std_dev(&instCNAbs.number[0], &ft4.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft4.bytes[0], &counter.bytes[0]);
+
+	// Standard deviation of the absolute centralized normalized absolute amplitude
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	inst_absolute(&instCNAbs.number[0], &instAbsCNAbs.number[0]);
+	std_dev(&instAbsCNAbs.number[0], &ft5.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft5.bytes[0], &counter.bytes[0]);
+
+	// Mean Value of the Signal Magnitude
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	mean_of_signal_magnitude(&instAbs.number[0], &ft6.number);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_features(&ft6.bytes[0], &counter.bytes[0]);
+
+	// Squared Mean of the Signal Magnitude
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	squared_mean_of_signal_magnitude(&instAbs.number[0], &ft7.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft7.bytes[0], &counter.bytes[0]);
+
+	// Normalized Sqrt Value of Sum of Amplitude
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	normalized_sqrt_of_sum_of_amp(&instAbs.number[0], &ft8.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft8.bytes[0], &counter.bytes[0]);
+
+	// Ratio of I/Q Components
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	ratio_iq(&rxBuffer.number[0], &ft9.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft9.bytes[0], &counter.bytes[0]);
+
+	// Gmax
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	gmax(&rxBuffer.number[0], &ft10.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft10.bytes[0], &counter.bytes[0]);
+
+	// Kurtosis of the Absolute Amplitude
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	kurtosis_of_abs_amplitude(&instAbs.number[0], &ft11.number, frameSize);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft11.bytes[0], &counter.bytes[0]);
+
+	// Kurtosis of the Absolute Frequency
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+	kurtosis_of_abs_freq(&instAbsFreq.number[0], &ft12.number, frameSize - 1);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&ft12.bytes[0], &counter.bytes[0]);
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -517,7 +504,7 @@ void transmit_features(uint8_t *value, uint8_t *counter){
 		UartReady = RESET;
 	}
 }
-void transmit_array(uint8_t *array, uint16_t size){
+void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter){
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
 		while(UartReady != SET){
@@ -525,6 +512,11 @@ void transmit_array(uint8_t *array, uint16_t size){
 		}
 		UartReady = RESET;
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &array[0], size);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &counter[0], 4);
 		while(UartReady != SET){
 			blink_red_fast();
 		}
