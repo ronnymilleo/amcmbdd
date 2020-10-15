@@ -32,9 +32,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
+#include "functions.h"
 #include "fully_connected.h"
 /* USER CODE END Includes */
 
@@ -45,7 +43,7 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-extern const uint16_t frameSize;
+
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

@@ -18,20 +18,13 @@
  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include <functions.h>
-#include <main.h>
+#include "main.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "arm_math.h"
-#include "arm_common_tables.h"
-#include "arm_const_structs.h"
-#include "arm_nnsupportfunctions.h"
-#include "arm_nn_tables.h"
-#include "arm_nnfunctions.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,7 +35,6 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define HSEM_ID_0 (0U) /* HW semaphore 0*/
-#define IMAGE_SIZE 28 * 28
 #define FT_INPUT_VECTOR_SIZE 2048
 #define RX_DATA_SIZE FT_INPUT_VECTOR_SIZE*2
 /* USER CODE END PD */
@@ -59,25 +51,37 @@
 const uint16_t frameSize = FT_INPUT_VECTOR_SIZE;
 const uint8_t txHead[4] = {0xCA, 0xCA, 0xCA, 0xCA};
 const uint8_t txTail[4] = {0xF0, 0xF0, 0xF0, 0xF0};
-
-uint8_t inputPicture[IMAGE_SIZE];
-float32_t f32_digitToClassify[IMAGE_SIZE];
-q15_t q15_digitToClassify[IMAGE_SIZE];
-
+extern q15_t aq15_out_Buf[22];
+extern q15_t aq15_layer_1_weights[22*22];
+extern q15_t aq15_layer_1_bias[22];
+extern q15_t aq15_layer_2_weights[22*22];
+extern q15_t aq15_layer_2_bias[22];
+extern q15_t aq15_layer_3_weights[22*22];
+extern q15_t aq15_layer_3_bias[22];
 // Variables go to FLASH memory
 union inst
 {
 	float32_t number[FT_INPUT_VECTOR_SIZE];
 	uint8_t bytes[FT_INPUT_VECTOR_SIZE*4];
-} instAbs, instPhase, instAbsPhase, instUnwrappedPhase, instFreq, instAbsFreq = {0}, instCNAbs, instAbsCNAbs;
+} instAbs = {0}, instPhase = {0}, instAbsPhase = {0}, instUnwrappedPhase = {0}, instFreq = {0}, instAbsFreq = {0}, instCNAbs = {0}, instAbsCNAbs = {0};
 union rxData
 {
 	float32_t number[RX_DATA_SIZE];
 	uint8_t bytes[RX_DATA_SIZE*4];
-} rxBuffer;
-uint8_t received = 0;
+} rxBuffer = {0};
+union cycles_counter
+{
+	uint32_t number;
+	uint8_t bytes[4];
+} counter;
+union features
+{
+	float32_t number;
+	uint8_t bytes[4];
+} ft0, ft1, ft2, ft3, ft4, ft5, ft6, ft7,
+  ft8, ft9, ft10, ft11, ft12, ft13, ft14,
+  ft15, ft16, ft17, ft18, ft19, ft20, ft21;
 uint8_t processed = 0;
-char txStringBuffer[100] = {'\0'};
 __IO ITStatus UartReady = RESET;
 /* USER CODE END PV */
 
@@ -93,11 +97,11 @@ void blink_orange_slow();
 void blink_green_fast();
 void blink_green();
 void blink_green_slow();
-void reset_buffer(char *stringBuffer);
-void resetDataBuffer(uint8_t *dataBuffer);
 void transmit_features(uint8_t *value, uint8_t *counter);
 void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter);
-void echoReceived(float *processedBuffer, char *transmitBuffer);
+void merge_features(float32_t out[]);
+void quantize_features(float32_t in[], q15_t out[]);
+uint8_t fully_connected_run(q15_t * aq15_input_data);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -112,22 +116,11 @@ void echoReceived(float *processedBuffer, char *transmitBuffer);
 int main(void)
 {
 	/* USER CODE BEGIN 1 */
-	// char hello_world[50] = {"\r\nHello World!\r\n"};
-	union cycles_counter
-	{
-		uint32_t number;
-		uint8_t bytes[4];
-	} counter;
-
-	union features
-	{
-		float32_t number;
-		uint8_t bytes[4];
-	} ft0, ft1, ft2, ft3, ft4, ft5, ft6, ft7,
-	  ft8, ft9, ft10, ft11, ft12, ft13, ft14,
-	  ft15, ft16, ft17, ft18, ft19, ft20, ft21;
-	// float32_t moment = 0.0f, var = 0.0f;
-	// uint32_t power = 2, max_index;
+	/*****************************************************************************************************/
+	float32_t input_vector[22] = {0};
+	q15_t q15_input_vector[22] = {0};
+	uint8_t test = 0;
+	/*****************************************************************************************************/
 	/* USER CODE END 1 */
 
 	/* USER CODE BEGIN Boot_Mode_Sequence_0 */
@@ -187,7 +180,12 @@ HSEM notification */
 	MX_USART3_UART_Init();
 	MX_TIM2_Init();
 	/* USER CODE BEGIN 2 */
-
+	/*****************************************************************************************************/
+	// HRTimer enable
+	__HAL_TIM_ENABLE(&htim2);
+	__HAL_TIM_UIFREMAP_DISABLE(&htim2);
+	HAL_TIM_Base_Start(&htim2);
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	// Put UART peripheral in reception process
 	if(HAL_UART_Receive_IT(&huart3, &rxBuffer.bytes[0], RX_DATA_SIZE*4) != HAL_OK)
 	{
@@ -202,17 +200,9 @@ HSEM notification */
 	}
 	UartReady = RESET;
 	HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
-
 	if(rxBuffer.bytes[8191] != 0 && (processed == 0)){
 		HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_SET);
 	}
-
-	// HRTimer enable
-	__HAL_TIM_ENABLE(&htim2);
-	__HAL_TIM_UIFREMAP_DISABLE(&htim2);
-	HAL_TIM_Base_Start(&htim2);
-	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-
 	/*****************************************************************************************************/
 	// Instantaneous absolute value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -220,17 +210,11 @@ HSEM notification */
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_array(&instAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
 
-	blink_orange_slow();
-	blink_orange_slow();
-
 	// Instantaneous phase value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_phase(&rxBuffer.number[0], &instPhase.number[0]);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_array(&instPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
-
-	blink_orange_slow();
-	blink_orange_slow();
 
 	// Instantaneous unwrapped phase value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -239,26 +223,17 @@ HSEM notification */
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_array(&instUnwrappedPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
 
-	blink_orange_slow();
-	blink_orange_slow();
-
 	// Instantaneous frequency value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_frequency(&rxBuffer.number[0], &instFreq.number[0]);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_array(&instFreq.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
 
-	blink_orange_slow();
-	blink_orange_slow();
-
 	// Instantaneous centered normalized absolute value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_centralized_normalized_absolute(&rxBuffer.number[0], &instCNAbs.number[0]);
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_array(&instCNAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
-
-	blink_orange_slow();
-	blink_orange_slow();
 
 	/*****************************************************************************************************/
 	// Standard deviation of the instantaneous phase
@@ -396,16 +371,22 @@ HSEM notification */
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_features(&ft21.bytes[0], &counter.bytes[0]);
 
+	merge_features(&input_vector[0]);
+	quantize_features(&input_vector[0], &q15_input_vector[0]);
+	test = fully_connected_run(q15_input_vector);
+	/*****************************************************************************************************/
 	/* USER CODE END 2 */
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
+	/*****************************************************************************************************/
 	clear_leds();
 	while (1)
 	{
-		blink_orange_slow();
-		/* USER CODE END WHILE */
 
+		/*************************************************************************************************/
+		/* USER CODE END WHILE */
 		/* USER CODE BEGIN 3 */
+		blink_orange_slow();
 	}
 	/* USER CODE END 3 */
 }
@@ -526,16 +507,6 @@ void blink_green_slow(){
 	HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
 	HAL_Delay(500);
 }
-void reset_buffer(char *stringBuffer){
-	for(uint16_t i = 1; i < 50; i++){
-		stringBuffer[i] = '\0';
-	}
-}
-void resetDataBuffer(uint8_t *dataBuffer){
-	for(uint16_t i = 1; i < 8192; i++){
-		dataBuffer[i] = 0;
-	}
-}
 void transmit_features(uint8_t *value, uint8_t *counter){
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
@@ -583,25 +554,13 @@ void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter){
 		}
 		UartReady = RESET;
 	}
+	blink_orange_slow();
 }
-void echoReceived(float32_t *processedBuffer, char *transmitBuffer){
-	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
-	for(int i = 0; i < 2048; i = i + 2){
-		reset_buffer(&transmitBuffer[0]);
-		sprintf(&transmitBuffer[0], "%d - (%.6f) + j(%.6f)\r\n", i, processedBuffer[i], processedBuffer[i+1]);
-		if(UART_CheckIdleState(&huart3) == HAL_OK){
-			if(HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], 50, 100) == HAL_TIMEOUT){
-				break;
-			}
-		}
-	}
-	reset_buffer(&transmitBuffer[0]);
-	sprintf(&transmitBuffer[0], "&");
-	if(UART_CheckIdleState(&huart3) == HAL_OK){
-		HAL_UART_Transmit(&huart3, (uint8_t*) &transmitBuffer[0], 50, 100);
-	}
-	received = 0;
-	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+void merge_features(float32_t out[]){
+
+}
+void quantize_features(float32_t in[], q15_t out[]){
+
 }
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart3){
 	/* Set transmission flag: transfer complete */

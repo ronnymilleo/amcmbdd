@@ -4,11 +4,14 @@
  *  Created on: Jul 20, 2020
  *      Author: ronny
  */
+#include <stdlib.h>
+#include <stdint.h>
 
 #include "arm_math.h"
+#include "arm_common_tables.h"
 #include "arm_const_structs.h"
-#include "arm_nnfunctions.h"
-#include <stdlib.h>
+
+extern const uint16_t frameSize;
 
 // Instantaneous values + 6 features ( 0 -> 5)
 void inst_absolute(float32_t in[], float32_t out[]);

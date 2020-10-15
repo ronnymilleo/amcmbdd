@@ -5,9 +5,7 @@
  *      Author: ronny
  */
 
-#include <functions.h>
-#include <main.h>
-#include "math.h"
+#include "functions.h"
 
 //**********************************************************************************************//
 // Preprocessing - Instantaneous values (6 features)
