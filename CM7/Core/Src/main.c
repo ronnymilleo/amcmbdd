@@ -22,6 +22,7 @@
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -48,16 +49,17 @@
 
 /* USER CODE BEGIN PV */
 // Read-only variables go to FLASH memory
+const uint32_t number_of_features = 22;
 const uint16_t frameSize = FT_INPUT_VECTOR_SIZE;
 const uint8_t txHead[4] = {0xCA, 0xCA, 0xCA, 0xCA};
 const uint8_t txTail[4] = {0xF0, 0xF0, 0xF0, 0xF0};
-extern q15_t aq15_out_Buf[22];
-extern q15_t aq15_layer_1_weights[22*22];
-extern q15_t aq15_layer_1_bias[22];
-extern q15_t aq15_layer_2_weights[22*22];
-extern q15_t aq15_layer_2_bias[22];
-extern q15_t aq15_layer_3_weights[22*22];
-extern q15_t aq15_layer_3_bias[22];
+q15_t aq15_out_Buf[22] = {0};
+q15_t aq15_layer_1_weights[22*22] = {0};
+q15_t aq15_layer_1_bias[22] = {0};
+q15_t aq15_layer_2_weights[22*22] = {0};
+q15_t aq15_layer_2_bias[22] = {0};
+q15_t aq15_layer_3_weights[22*22] = {0};
+q15_t aq15_layer_3_bias[22] = {0};
 // Variables go to FLASH memory
 union inst
 {
@@ -69,23 +71,21 @@ union rxData
 	float32_t number[RX_DATA_SIZE];
 	uint8_t bytes[RX_DATA_SIZE*4];
 } rxBuffer = {0};
-union cycles_counter
+union cycles_counter_array
 {
-	uint32_t number;
-	uint8_t bytes[4];
-} counter;
+	uint32_t number[5 + 22 + 1];
+	uint8_t bytes[4*(5 + 22 + 1)];
+} counter_array = {0};
 union features
 {
-	float32_t number;
-	uint8_t bytes[4];
-} ft0, ft1, ft2, ft3, ft4, ft5, ft6, ft7,
-  ft8, ft9, ft10, ft11, ft12, ft13, ft14,
-  ft15, ft16, ft17, ft18, ft19, ft20, ft21;
+	float32_t number[22];
+	uint8_t bytes[4*22];
+} ft_array = {0};
 union prediction
 {
 	uint32_t number;
 	uint8_t bytes[4];
-} predicted;
+} predicted = {0};
 uint8_t processed = 0;
 __IO ITStatus UartReady = RESET;
 /* USER CODE END PV */
@@ -102,9 +102,9 @@ void blink_orange_slow();
 void blink_green_fast();
 void blink_green();
 void blink_green_slow();
+void transmit_prediction(uint8_t *value, uint8_t *counter);
 void transmit_features(uint8_t *value, uint8_t *counter);
 void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter);
-void merge_features(float32_t out[]);
 void quantize_features(float32_t in[], q15_t out[]);
 /* USER CODE END PFP */
 
@@ -121,7 +121,6 @@ int main(void)
 {
 	/* USER CODE BEGIN 1 */
 	/*****************************************************************************************************/
-	float32_t input_vector[22] = {0};
 	q15_t q15_input_vector[22] = {0};
 	/*****************************************************************************************************/
 	/* USER CODE END 1 */
@@ -206,183 +205,162 @@ HSEM notification */
 	if(rxBuffer.bytes[8191] != 0 && (processed == 0)){
 		HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_SET);
 	}
-	/*****************************************************************************************************/
 	// Instantaneous absolute value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	complex_inst_absolute(&rxBuffer.number[0], &instAbs.number[0]);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_array(&instAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
+	counter_array.number[0] = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_array(&instAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[0]);
 
 	// Instantaneous phase value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_phase(&rxBuffer.number[0], &instPhase.number[0]);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_array(&instPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
+	counter_array.number[1] = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_array(&instPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[4]);
 
 	// Instantaneous unwrapped phase value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_phase(&rxBuffer.number[0], &instPhase.number[0]);
 	unwrap(&instPhase.number[0], &instUnwrappedPhase.number[0]);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_array(&instUnwrappedPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
+	counter_array.number[2] = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_array(&instUnwrappedPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[8]);
 
 	// Instantaneous frequency value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_frequency(&rxBuffer.number[0], &instFreq.number[0]);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_array(&instFreq.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
+	counter_array.number[3] = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_array(&instFreq.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[12]);
 
 	// Instantaneous centered normalized absolute value
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_centralized_normalized_absolute(&rxBuffer.number[0], &instCNAbs.number[0]);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_array(&instCNAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter.bytes[0]);
+	counter_array.number[4] = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_array(&instCNAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[16]);
 
 	/*****************************************************************************************************/
 	// Standard deviation of the instantaneous phase
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	std_dev(&instPhase.number[0], &ft0.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft0.bytes[0], &counter.bytes[0]);
+	std_dev(&instPhase.number[0], &ft_array.number[0]);
+	counter_array.number[5] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Standard deviation of the absolute instantaneous phase
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_absolute(&instPhase.number[0], &instAbsPhase.number[0]);
-	std_dev(&instAbsPhase.number[0], &ft1.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft1.bytes[0], &counter.bytes[0]);
+	std_dev(&instAbsPhase.number[0], &ft_array.number[1]);
+	counter_array.number[6] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Standard deviation of the instantaneous frequency
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	std_dev(&instFreq.number[0], &ft2.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft2.bytes[0], &counter.bytes[0]);
+	std_dev(&instFreq.number[0], &ft_array.number[2]);
+	counter_array.number[7] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Standard deviation of the absolute instantaneous frequency
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_absolute(&instFreq.number[0], &instAbsFreq.number[0]);
-	std_dev(&instAbsFreq.number[0], &ft3.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft3.bytes[0], &counter.bytes[0]);
+	std_dev(&instAbsFreq.number[0], &ft_array.number[3]);
+	counter_array.number[8] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Standard deviation of the centralized normalized absolute amplitude
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	std_dev(&instCNAbs.number[0], &ft4.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft4.bytes[0], &counter.bytes[0]);
+	std_dev(&instCNAbs.number[0], &ft_array.number[4]);
+	counter_array.number[9] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Standard deviation of the absolute centralized normalized absolute amplitude
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	inst_absolute(&instCNAbs.number[0], &instAbsCNAbs.number[0]);
-	std_dev(&instAbsCNAbs.number[0], &ft5.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft5.bytes[0], &counter.bytes[0]);
+	std_dev(&instAbsCNAbs.number[0], &ft_array.number[5]);
+	counter_array.number[10] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Mean Value of the Signal Magnitude
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	mean_of_signal_magnitude(&instAbs.number[0], &ft6.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft6.bytes[0], &counter.bytes[0]);
+	mean_of_signal_magnitude(&instAbs.number[0], &ft_array.number[6]);
+	counter_array.number[11] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Squared Mean of the Signal Magnitude
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	squared_mean_of_signal_magnitude(&instAbs.number[0], &ft7.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft7.bytes[0], &counter.bytes[0]);
+	squared_mean_of_signal_magnitude(&instAbs.number[0], &ft_array.number[7]);
+	counter_array.number[12] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Normalized Sqrt Value of Sum of Amplitude
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	normalized_sqrt_of_sum_of_amp(&instAbs.number[0], &ft8.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft8.bytes[0], &counter.bytes[0]);
+	normalized_sqrt_of_sum_of_amp(&instAbs.number[0], &ft_array.number[8]);
+	counter_array.number[13] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Ratio of I/Q Components
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	ratio_iq(&rxBuffer.number[0], &ft9.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft9.bytes[0], &counter.bytes[0]);
+	ratio_iq(&rxBuffer.number[0], &ft_array.number[9]);
+	counter_array.number[14] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Gmax
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	gmax(&rxBuffer.number[0], &ft10.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft10.bytes[0], &counter.bytes[0]);
+	gmax(&rxBuffer.number[0], &ft_array.number[10]);
+	counter_array.number[15] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Kurtosis of the Absolute Amplitude
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	kurtosis_of_abs_amplitude(&instAbs.number[0], &ft11.number, frameSize);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft11.bytes[0], &counter.bytes[0]);
+	kurtosis_of_abs_amplitude(&instAbs.number[0], &ft_array.number[11], frameSize);
+	counter_array.number[16] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Kurtosis of the Absolute Frequency
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	kurtosis_of_abs_freq(&instAbsFreq.number[0], &ft12.number, frameSize - 1);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft12.bytes[0], &counter.bytes[0]);
+	kurtosis_of_abs_freq(&instAbsFreq.number[0], &ft_array.number[12], frameSize - 1);
+	counter_array.number[17] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Cumulant 20
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	cumulant_20(&rxBuffer.number[0], &ft13.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft13.bytes[0], &counter.bytes[0]);
+	cumulant_20(&rxBuffer.number[0], &ft_array.number[13]);
+	counter_array.number[18] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Cumulant 21
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	cumulant_21(&rxBuffer.number[0], &ft14.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft14.bytes[0], &counter.bytes[0]);
+	cumulant_21(&rxBuffer.number[0], &ft_array.number[14]);
+	counter_array.number[19] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Cumulant 40
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	cumulant_40(&rxBuffer.number[0], &ft15.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft15.bytes[0], &counter.bytes[0]);
+	cumulant_40(&rxBuffer.number[0], &ft_array.number[15]);
+	counter_array.number[20] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Cumulant 41
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	cumulant_41(&rxBuffer.number[0], &ft16.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft16.bytes[0], &counter.bytes[0]);
+	cumulant_41(&rxBuffer.number[0], &ft_array.number[16]);
+	counter_array.number[21] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Cumulant 42
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	cumulant_42(&rxBuffer.number[0], &ft17.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft17.bytes[0], &counter.bytes[0]);
+	cumulant_42(&rxBuffer.number[0], &ft_array.number[17]);
+	counter_array.number[22] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Cumulant 60
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	cumulant_60(&rxBuffer.number[0], &ft18.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft18.bytes[0], &counter.bytes[0]);
+	cumulant_60(&rxBuffer.number[0], &ft_array.number[18]);
+	counter_array.number[23] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Cumulant 61
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	cumulant_61(&rxBuffer.number[0], &ft19.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft19.bytes[0], &counter.bytes[0]);
+	cumulant_61(&rxBuffer.number[0], &ft_array.number[19]);
+	counter_array.number[24] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Cumulant 62
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	cumulant_62(&rxBuffer.number[0], &ft20.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft20.bytes[0], &counter.bytes[0]);
+	cumulant_62(&rxBuffer.number[0], &ft_array.number[20]);
+	counter_array.number[25] = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// Cumulant 63
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	cumulant_63(&rxBuffer.number[0], &ft21.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&ft21.bytes[0], &counter.bytes[0]);
+	cumulant_63(&rxBuffer.number[0], &ft_array.number[21]);
+	counter_array.number[26] = __HAL_TIM_GET_COUNTER(&htim2);
+
+	transmit_features(&ft_array.bytes[0], &counter_array.bytes[20]);
 
 	// Evaluate neural network
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-	merge_features(&input_vector[0]);
-	quantize_features(&input_vector[0], &q15_input_vector[0]);
+	quantize_features(&ft_array.number[0], &q15_input_vector[0]);
 	fully_connected_run(&q15_input_vector[0], &predicted.number);
-	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
-	transmit_features(&predicted.bytes[0], &counter.bytes[0]);
+	counter_array.number[27] = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_prediction(&predicted.bytes[0], &counter_array.bytes[4*27]);
 	/*****************************************************************************************************/
 	/* USER CODE END 2 */
+
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	/*****************************************************************************************************/
@@ -392,6 +370,7 @@ HSEM notification */
 
 		/*************************************************************************************************/
 		/* USER CODE END WHILE */
+
 		/* USER CODE BEGIN 3 */
 		blink_orange_slow();
 	}
@@ -514,7 +493,7 @@ void blink_green_slow(){
 	HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
 	HAL_Delay(500);
 }
-void transmit_features(uint8_t *value, uint8_t *counter){
+void transmit_prediction(uint8_t *value, uint8_t *counter){
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
 		while(UartReady != SET){
@@ -527,6 +506,30 @@ void transmit_features(uint8_t *value, uint8_t *counter){
 		}
 		UartReady = RESET;
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &counter[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txTail[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+}
+void transmit_features(uint8_t *value, uint8_t *counter){
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &value[0], 4*22);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &counter[0], 4*22);
 		while(UartReady != SET){
 			blink_red_fast();
 		}
@@ -563,32 +566,31 @@ void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter){
 	}
 	blink_orange_slow();
 }
-void merge_features(float32_t out[]){
-	out[0] = ft0.number;
-	out[1] = ft1.number;
-	out[2] = ft2.number;
-	out[3] = ft3.number;
-	out[4] = ft4.number;
-	out[5] = ft5.number;
-	out[6] = ft6.number;
-	out[7] = ft7.number;
-	out[8] = ft8.number;
-	out[9] = ft9.number;
-	out[10] = ft10.number;
-	out[11] = ft11.number;
-	out[12] = ft12.number;
-	out[13] = ft13.number;
-	out[14] = ft14.number;
-	out[15] = ft15.number;
-	out[16] = ft16.number;
-	out[17] = ft17.number;
-	out[18] = ft18.number;
-	out[19] = ft19.number;
-	out[20] = ft20.number;
-	out[21] = ft21.number;
-}
 void quantize_features(float32_t in[], q15_t out[]){
+	const int16_t min_int16_t = SHRT_MIN;
+	const int16_t max_int16_t = SHRT_MAX;
+	const float32_t max_float = FLT_MAX;
 
+	float32_t min_range = 0.0f;
+	uint32_t min_index = 0;
+	float32_t max_range = 0.0f;
+	uint32_t max_index = 0;
+	float32_t scale_factor_from_min_side = 0.0f;
+	float32_t scale_factor_from_max_side = 0.0f;
+	float32_t scale_factor = 0.0f;
+
+	arm_min_f32(in, number_of_features, &min_range, &min_index);
+	arm_max_f32(in, number_of_features, &max_range, &max_index);
+	scale_factor_from_min_side = (min_int16_t * min_range > 0) ? min_int16_t / min_range : max_float;
+	scale_factor_from_max_side = (max_int16_t * max_range > 0) ? max_int16_t / max_range : max_float;
+	scale_factor = fminf(scale_factor_from_min_side, scale_factor_from_max_side);
+
+	min_range = min_int16_t / scale_factor;
+	max_range = max_int16_t / scale_factor;
+
+	for(uint8_t i = 0; i < number_of_features; i++){
+		out[i] = (int16_t) roundf(fminf(max_range, fmaxf(min_range, in[i])) * scale_factor);
+	}
 }
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart3){
 	/* Set transmission flag: transfer complete */

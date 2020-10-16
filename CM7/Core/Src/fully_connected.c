@@ -7,13 +7,13 @@
 
 #include "fully_connected.h"
 
-q15_t aq15_out_Buf[22] = {0};
-q15_t aq15_layer_1_weights[22*22] = {0};
-q15_t aq15_layer_1_bias[22] = {0};
-q15_t aq15_layer_2_weights[22*22] = {0};
-q15_t aq15_layer_2_bias[22] = {0};
-q15_t aq15_layer_3_weights[22*22] = {0};
-q15_t aq15_layer_3_bias[22] = {0};
+extern q15_t aq15_out_Buf[22];
+extern q15_t aq15_layer_1_weights[22*22];
+extern q15_t aq15_layer_1_bias[22];
+extern q15_t aq15_layer_2_weights[22*22];
+extern q15_t aq15_layer_2_bias[22];
+extern q15_t aq15_layer_3_weights[22*22];
+extern q15_t aq15_layer_3_bias[22];
 
 void fully_connected_run(q15_t input_data[], uint32_t *prediction)
 {
@@ -29,13 +29,13 @@ void fully_connected_run(q15_t input_data[], uint32_t *prediction)
         aq15_layer_1_bias,
         aq15_out_Buf,
         NULL);
-
+    /*
     arm_nn_activations_direct_q15(
     		aq15_out_Buf,
 			LAYER_1_OU_DIM,
 			1,
 			ARM_SIGMOID);
-
+	*/
     arm_relu_q15(
         aq15_out_Buf,
         LAYER_1_OU_DIM);

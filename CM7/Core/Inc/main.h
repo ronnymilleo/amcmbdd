@@ -32,6 +32,8 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <limits.h>
+#include <float.h>
 #include "functions.h"
 #include "fully_connected.h"
 /* USER CODE END Includes */
