@@ -25,6 +25,6 @@
 
 #include "arm_nnfunctions.h"
 
-uint8_t fully_connected_run(q15_t * q15_input_data);
+void fully_connected_run(q15_t input_data[], uint32_t *prediction);
 
 #endif /* INC_FULLY_CONNECTED_H_ */

@@ -15,13 +15,12 @@ q15_t aq15_layer_2_bias[22] = {0};
 q15_t aq15_layer_3_weights[22*22] = {0};
 q15_t aq15_layer_3_bias[22] = {0};
 
-uint8_t fully_connected_run(q15_t * aq15_input_data)
+void fully_connected_run(q15_t input_data[], uint32_t *prediction)
 {
     int16_t i16_max_val = 0x7FFF, i = 0;
-    uint8_t u8_max_prediction = 0;
 
     arm_fully_connected_q15(
-        aq15_input_data,
+        input_data,
         aq15_layer_1_weights,
         LAYER_1_IN_DIM,
         LAYER_1_OU_DIM,
@@ -40,9 +39,9 @@ uint8_t fully_connected_run(q15_t * aq15_input_data)
     arm_relu_q15(
         aq15_out_Buf,
         LAYER_1_OU_DIM);
-    memcpy(aq15_input_data, aq15_out_Buf, sizeof(aq15_out_Buf));
+    memcpy(input_data, aq15_out_Buf, sizeof(aq15_out_Buf));
     arm_fully_connected_q15(
-        aq15_input_data,
+        input_data,
         aq15_layer_2_weights,
         LAYER_2_IN_DIM,
         LAYER_2_OU_DIM,
@@ -54,9 +53,9 @@ uint8_t fully_connected_run(q15_t * aq15_input_data)
     arm_relu_q15(
         aq15_out_Buf,
         LAYER_2_OU_DIM);
-    memcpy(aq15_input_data, aq15_out_Buf, sizeof(aq15_out_Buf));
+    memcpy(input_data, aq15_out_Buf, sizeof(aq15_out_Buf));
     arm_fully_connected_q15(
-        aq15_input_data,
+        input_data,
         aq15_layer_3_weights,
         LAYER_3_IN_DIM,
         LAYER_3_OU_DIM,
@@ -65,16 +64,15 @@ uint8_t fully_connected_run(q15_t * aq15_input_data)
         aq15_layer_3_bias,
         aq15_out_Buf,
         NULL);
-    memcpy(aq15_input_data, aq15_out_Buf, sizeof(aq15_out_Buf));
+    memcpy(input_data, aq15_out_Buf, sizeof(aq15_out_Buf));
     arm_softmax_q15(
-        aq15_input_data,
+        input_data,
         LAYER_3_OU_DIM,
         aq15_out_Buf);
     for(i = 0; i < LAYER_3_OU_DIM; i++) {
         if(i16_max_val < aq15_out_Buf[i]) {
             i16_max_val = aq15_out_Buf[i];
-            u8_max_prediction = i;
+            *prediction = i;
         }
     }
-    return u8_max_prediction;
 }

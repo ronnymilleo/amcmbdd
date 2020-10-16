@@ -81,6 +81,11 @@ union features
 } ft0, ft1, ft2, ft3, ft4, ft5, ft6, ft7,
   ft8, ft9, ft10, ft11, ft12, ft13, ft14,
   ft15, ft16, ft17, ft18, ft19, ft20, ft21;
+union prediction
+{
+	uint32_t number;
+	uint8_t bytes[4];
+} predicted;
 uint8_t processed = 0;
 __IO ITStatus UartReady = RESET;
 /* USER CODE END PV */
@@ -101,7 +106,6 @@ void transmit_features(uint8_t *value, uint8_t *counter);
 void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter);
 void merge_features(float32_t out[]);
 void quantize_features(float32_t in[], q15_t out[]);
-uint8_t fully_connected_run(q15_t * aq15_input_data);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -119,7 +123,6 @@ int main(void)
 	/*****************************************************************************************************/
 	float32_t input_vector[22] = {0};
 	q15_t q15_input_vector[22] = {0};
-	uint8_t test = 0;
 	/*****************************************************************************************************/
 	/* USER CODE END 1 */
 
@@ -371,9 +374,13 @@ HSEM notification */
 	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
 	transmit_features(&ft21.bytes[0], &counter.bytes[0]);
 
+	// Evaluate neural network
+	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 	merge_features(&input_vector[0]);
 	quantize_features(&input_vector[0], &q15_input_vector[0]);
-	test = fully_connected_run(q15_input_vector);
+	fully_connected_run(&q15_input_vector[0], &predicted.number);
+	counter.number = __HAL_TIM_GET_COUNTER(&htim2);
+	transmit_features(&predicted.bytes[0], &counter.bytes[0]);
 	/*****************************************************************************************************/
 	/* USER CODE END 2 */
 	/* Infinite loop */
@@ -557,7 +564,28 @@ void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter){
 	blink_orange_slow();
 }
 void merge_features(float32_t out[]){
-
+	out[0] = ft0.number;
+	out[1] = ft1.number;
+	out[2] = ft2.number;
+	out[3] = ft3.number;
+	out[4] = ft4.number;
+	out[5] = ft5.number;
+	out[6] = ft6.number;
+	out[7] = ft7.number;
+	out[8] = ft8.number;
+	out[9] = ft9.number;
+	out[10] = ft10.number;
+	out[11] = ft11.number;
+	out[12] = ft12.number;
+	out[13] = ft13.number;
+	out[14] = ft14.number;
+	out[15] = ft15.number;
+	out[16] = ft16.number;
+	out[17] = ft17.number;
+	out[18] = ft18.number;
+	out[19] = ft19.number;
+	out[20] = ft20.number;
+	out[21] = ft21.number;
 }
 void quantize_features(float32_t in[], q15_t out[]){
 
