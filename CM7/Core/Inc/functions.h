@@ -11,7 +11,7 @@
 #include "arm_common_tables.h"
 #include "arm_const_structs.h"
 
-extern const uint16_t frameSize;
+extern const uint32_t frameSize;
 
 // Instantaneous values + 6 features ( 0 -> 5)
 void inst_absolute(float32_t in[], float32_t out[]);
@@ -34,16 +34,16 @@ void kurtosis_of_abs_amplitude(float32_t in[], float32_t *out, uint32_t blockSiz
 void kurtosis_of_abs_freq(float32_t in[], float32_t *out, uint32_t blockSize);
 
 // Features no 13, 14, 15, 16, 17, 18, 19, 20 and 21
-void moment20(float32_t in[], float32_t *out);
+void moment20(float32_t in[], float32_t out[]);
 void moment21(float32_t in[], float32_t *out);
-void moment40(float32_t in[], float32_t *out);
-void moment41(float32_t in[], float32_t *out);
-void moment42(float32_t in[], float32_t *out);
-void moment43(float32_t in[], float32_t *out);
-void moment60(float32_t in[], float32_t *out);
-void moment61(float32_t in[], float32_t *out);
-void moment62(float32_t in[], float32_t *out);
-void moment63(float32_t in[], float32_t *out);
+void moment40(float32_t in[], float32_t out[]);
+void moment41(float32_t in[], float32_t out[]);
+void moment42(float32_t in[], float32_t out[]);
+void moment43(float32_t in[], float32_t out[]);
+void moment60(float32_t in[], float32_t out[]);
+void moment61(float32_t in[], float32_t out[]);
+void moment62(float32_t in[], float32_t out[]);
+void moment63(float32_t in[], float32_t out[]);
 void cumulant_20(float32_t in[], float32_t *out);
 void cumulant_21(float32_t in[], float32_t *out);
 void cumulant_40(float32_t in[], float32_t *out);

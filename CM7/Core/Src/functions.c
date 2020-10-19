@@ -28,14 +28,21 @@ void inst_phase(float32_t in[], float32_t out[]){
 }
 
 void unwrap(float32_t in[], float32_t out[]){
-	uint16_t k = 0;
+	int32_t k = 0;
 	float32_t alpha = M_PI;
-	float32_t diff = 0.0f;
+	// float32_t diff = 0.0f;
+	float32_t in_cp[frameSize];
+	float32_t sub[frameSize];
+	float32_t abs_sub[frameSize];
+	arm_copy_f32(&in[0], &in_cp[0], frameSize);
+	arm_sub_f32(&in[1], &in_cp[0], &sub[0], (frameSize - 1));
+	arm_abs_f32(&sub[0], &abs_sub[0], (frameSize - 1));
 	for(int i = 0; i < (frameSize - 1); i++){
 		out[i] = in[i] + 2*M_PI*k;
-		diff = fabsf(in[i+1] - in[i]);
-		if(diff > alpha){
-			if(in[i+1] < in[i]){
+		// diff = fabsf(in[i+1] - in[i]);
+		// if(diff > alpha){
+		if(abs_sub[i] > alpha){
+			if(in[i+1] < in_cp[i]){
 				k++;
 			} else {
 				k--;
@@ -194,7 +201,8 @@ void kurtosis_of_abs_freq(float32_t in[], float32_t *out, uint32_t blockSize){
 
 // Central moment definition
 // Mpq = E[x^(p-q).x*^q]
-void moment20(float32_t in[], float32_t *out){
+void moment20(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_cp[frameSize*2];
 	float32_t m20[frameSize*2]; // in^2
 	float32_t m20_real = 0, m20_imag = 0, m20_real_mean = 0, m20_imag_mean = 0;
@@ -204,12 +212,14 @@ void moment20(float32_t in[], float32_t *out){
 		m20_real += m20[i];
 		m20_imag += m20[i+1];
 	}
-	m20_real_mean = m20_real / frameSize;
-	m20_imag_mean = m20_imag / frameSize;
-	*out = sqrtf(m20_real_mean*m20_real_mean + m20_imag_mean*m20_imag_mean);
+	m20_real_mean = m20_real / blockSize;
+	m20_imag_mean = m20_imag / blockSize;
+	out[0] = m20_real_mean;
+	out[1] = m20_imag_mean;
+	//*out = sqrtf(m20_real_mean*m20_real_mean + m20_imag_mean*m20_imag_mean);
 }
 
-void moment21(float32_t in[], float32_t *out){
+void moment21(float32_t in[], float32_t out[]){
 	float32_t in_conj[frameSize*2];
 	float32_t m21[frameSize*2];
 	float32_t in_mag[frameSize];
@@ -221,7 +231,8 @@ void moment21(float32_t in[], float32_t *out){
 	// is no imaginary part in the number M21, different from M20
 }
 
-void moment22(float32_t in[], float32_t *out){
+void moment22(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_conj[frameSize*2];
 	float32_t in_conj_cp[frameSize*2];
 	float32_t m22[frameSize*2]; // in^2
@@ -233,12 +244,15 @@ void moment22(float32_t in[], float32_t *out){
 		m22_real += m22[i];
 		m22_imag += m22[i+1];
 	}
-	m22_real_mean = m22_real / frameSize;
-	m22_imag_mean = m22_imag / frameSize;
-	*out = sqrtf(m22_real_mean*m22_real_mean + m22_imag_mean*m22_imag_mean);
+	m22_real_mean = m22_real / blockSize;
+	m22_imag_mean = m22_imag / blockSize;
+	out[0] = m22_real_mean;
+	out[1] = m22_imag_mean;
+	//*out = sqrtf(m22_real_mean*m22_real_mean + m22_imag_mean*m22_imag_mean);
 }
 
-void moment40(float32_t in[], float32_t *out){
+void moment40(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_cp[frameSize*2];
 	float32_t m20[frameSize*2]; // in^2
 	float32_t m30[frameSize]; // in^3
@@ -253,12 +267,15 @@ void moment40(float32_t in[], float32_t *out){
 		m40_real += m40[i];
 		m40_imag += m40[i+1];
 	}
-	m40_real_mean = m40_real / frameSize;
-	m40_imag_mean = m40_imag / frameSize;
-	*out = sqrtf(m40_real_mean*m40_real_mean + m40_imag_mean*m40_imag_mean);
+	m40_real_mean = m40_real / blockSize;
+	m40_imag_mean = m40_imag / blockSize;
+	out[0] = m40_real_mean;
+	out[1] = m40_imag_mean;
+	// *out = sqrtf(m40_real_mean*m40_real_mean + m40_imag_mean*m40_imag_mean);
 }
 
-void moment41(float32_t in[], float32_t *out){
+void moment41(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_cp[frameSize*2];
 	float32_t in_conj[frameSize*2];
 	float32_t m20[frameSize*2]; // in^2
@@ -275,12 +292,15 @@ void moment41(float32_t in[], float32_t *out){
 		m41_real += m41[i];
 		m41_imag += m41[i+1];
 	}
-	m41_real_mean = m41_real / frameSize;
-	m41_imag_mean = m41_imag / frameSize;
-	*out = sqrtf(m41_real_mean*m41_real_mean + m41_imag_mean*m41_imag_mean);
+	m41_real_mean = m41_real / blockSize;
+	m41_imag_mean = m41_imag / blockSize;
+	out[0] = m41_real_mean;
+	out[1] = m41_imag_mean;
+	// *out = sqrtf(m41_real_mean*m41_real_mean + m41_imag_mean*m41_imag_mean);
 }
 
-void moment42(float32_t in[], float32_t *out){
+void moment42(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_cp[frameSize*2];
 	float32_t in_conj[frameSize*2];
 	float32_t m20[frameSize*2]; // in^2
@@ -297,12 +317,15 @@ void moment42(float32_t in[], float32_t *out){
 		m42_real += m42[i];
 		m42_imag += m42[i+1];
 	}
-	m42_real_mean = m42_real / frameSize;
-	m42_imag_mean = m42_imag / frameSize;
-	*out = sqrtf(m42_real_mean*m42_real_mean + m42_imag_mean*m42_imag_mean);
+	m42_real_mean = m42_real / blockSize;
+	m42_imag_mean = m42_imag / blockSize;
+	out[0] = m42_real_mean;
+	out[1] = m42_imag_mean;
+	// *out = sqrtf(m42_real_mean*m42_real_mean + m42_imag_mean*m42_imag_mean);
 }
 
-void moment43(float32_t in[], float32_t *out){
+void moment43(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_cp[frameSize*2];
 	float32_t in_conj[frameSize*2];
 	float32_t m21[frameSize*2]; // in^2
@@ -319,12 +342,15 @@ void moment43(float32_t in[], float32_t *out){
 		m43_real += m43[i];
 		m43_imag += m43[i+1];
 	}
-	m43_real_mean = m43_real / frameSize;
-	m43_imag_mean = m43_imag / frameSize;
-	*out = sqrtf(m43_real_mean*m43_real_mean + m43_imag_mean*m43_imag_mean);
+	m43_real_mean = m43_real / blockSize;
+	m43_imag_mean = m43_imag / blockSize;
+	out[0] = m43_real_mean;
+	out[1] = m43_imag_mean;
+	// *out = sqrtf(m43_real_mean*m43_real_mean + m43_imag_mean*m43_imag_mean);
 }
 
-void moment60(float32_t in[], float32_t *out){
+void moment60(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_cp[frameSize*2];
 	float32_t m20[frameSize*2]; // in^2
 	float32_t m30[frameSize]; // in^3
@@ -343,12 +369,15 @@ void moment60(float32_t in[], float32_t *out){
 		m60_real += m60[i];
 		m60_imag += m60[i+1];
 	}
-	m60_real_mean = m60_real / frameSize;
-	m60_imag_mean = m60_imag / frameSize;
-	*out = sqrtf(m60_real_mean*m60_real_mean + m60_imag_mean*m60_imag_mean);
+	m60_real_mean = m60_real / blockSize;
+	m60_imag_mean = m60_imag / blockSize;
+	out[0] = m60_real_mean;
+	out[1] = m60_imag_mean;
+	// *out = sqrtf(m60_real_mean*m60_real_mean + m60_imag_mean*m60_imag_mean);
 }
 
-void moment61(float32_t in[], float32_t *out){
+void moment61(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_cp[frameSize*2];
 	float32_t in_conj[frameSize*2];
 	float32_t m20[frameSize*2]; // in^2
@@ -369,12 +398,15 @@ void moment61(float32_t in[], float32_t *out){
 		m61_real += m61[i];
 		m61_imag += m61[i+1];
 	}
-	m61_real_mean = m61_real / frameSize;
-	m61_imag_mean = m61_imag / frameSize;
-	*out = sqrtf(m61_real_mean*m61_real_mean + m61_imag_mean*m61_imag_mean);
+	m61_real_mean = m61_real / blockSize;
+	m61_imag_mean = m61_imag / blockSize;
+	out[0] = m61_real_mean;
+	out[1] = m61_imag_mean;
+	// *out = sqrtf(m61_real_mean*m61_real_mean + m61_imag_mean*m61_imag_mean);
 }
 
-void moment62(float32_t in[], float32_t *out){
+void moment62(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_cp[frameSize*2];
 	float32_t in_conj[frameSize*2];
 	float32_t m20[frameSize*2]; // in^2
@@ -395,12 +427,15 @@ void moment62(float32_t in[], float32_t *out){
 		m62_real += m62[i];
 		m62_imag += m62[i+1];
 	}
-	m62_real_mean = m62_real / frameSize;
-	m62_imag_mean = m62_imag / frameSize;
-	*out = sqrtf(m62_real_mean*m62_real_mean + m62_imag_mean*m62_imag_mean);
+	m62_real_mean = m62_real / blockSize;
+	m62_imag_mean = m62_imag / blockSize;
+	out[0] = m62_real_mean;
+	out[1] = m62_imag_mean;
+	// *out = sqrtf(m62_real_mean*m62_real_mean + m62_imag_mean*m62_imag_mean);
 }
 
-void moment63(float32_t in[], float32_t *out){
+void moment63(float32_t in[], float32_t out[]){
+	float32_t blockSize = (float32_t) frameSize;
 	float32_t in_cp[frameSize*2];
 	float32_t in_conj[frameSize*2];
 	float32_t m20[frameSize*2]; // in^2
@@ -421,80 +456,192 @@ void moment63(float32_t in[], float32_t *out){
 		m63_real += m63[i];
 		m63_imag += m63[i+1];
 	}
-	m63_real_mean = m63_real / frameSize;
-	m63_imag_mean = m63_imag / frameSize;
-	*out = sqrtf(m63_real_mean*m63_real_mean + m63_imag_mean*m63_imag_mean);
+	m63_real_mean = m63_real / blockSize;
+	m63_imag_mean = m63_imag / blockSize;
+	out[0] = m63_real_mean;
+	out[1] = m63_imag_mean;
+	// *out = sqrtf(m63_real_mean*m63_real_mean + m63_imag_mean*m63_imag_mean);
 }
 
 // Features no 13, 14, 15, 16, 17, 18, 19, 20 and 21
 void cumulant_20(float32_t in[], float32_t *out){
-	moment20(&in[0], out);
+	float32_t temp[2];
+	moment20(&in[0], &temp[0]);
+	*out = sqrtf(temp[0]*temp[0] + temp[1]*temp[1]);
 };
 void cumulant_21(float32_t in[], float32_t *out){
 	moment21(&in[0], out);
 };
 
 void cumulant_40(float32_t in[], float32_t *out){
-	float32_t m40, m20;
-	moment20(&in[0], &m20);
-	moment40(&in[0], &m40);
-	*out = fabsf(m40 - 3*m20*m20);
+	float32_t m40[2], m20[2];
+	float32_t m20_2[2], _3_m20_2[2];
+	float32_t temp[2];
+	moment20(&in[0], &m20[0]); // m20 is complex
+	moment40(&in[0], &m40[0]); // m40 is complex
+	// From complex multiplication
+	// (a + bi)(a + bi) = (a^2 - b^2) + (2ab)i
+	// Calculate 3*m20^2
+	m20_2[0] = m20[0] * m20[0] - m20[1] * m20[1];
+	m20_2[1] = 2 * m20[0] * m20[1];
+	_3_m20_2[0] = m20_2[0] * 3;
+	_3_m20_2[1] = m20_2[1] * 3;
+	// Save temporary complex number and calculate absolute value
+	temp[0] = m40[0] - _3_m20_2[0];
+	temp[1] = m40[1] - _3_m20_2[1];
+	*out = sqrtf(temp[0]*temp[0] + temp[1]*temp[1]);
+	// *out = fabsf(m40 - 3*m20*m20);
 };
 void cumulant_41(float32_t in[], float32_t *out){
-	float32_t m41, m20, m21;
-	moment41(&in[0], &m41);
-	moment20(&in[0], &m20);
-	moment21(&in[0], &m21);
-	*out = fabsf(m41 - 3*m20*m21);
+	float32_t m41[2], m20[2], m21;
+	float32_t _3_m20_m21[2];
+	float32_t temp[2];
+	moment41(&in[0], &m41[0]); // m41 is complex
+	moment20(&in[0], &m20[0]); // m20 is complex
+	moment21(&in[0], &m21);    // m21 is real
+	// Calculate 3*m20*m21
+	_3_m20_m21[0] = 3 * m20[0] * m21;
+	_3_m20_m21[1] = 3 * m20[1] * m21;
+	temp[0] = m41[0] - _3_m20_m21[0];
+	temp[1] = m41[1] - _3_m20_m21[1];
+	*out = sqrtf(temp[0]*temp[0] + temp[1]*temp[1]);
+	// *out = fabsf(m41 - 3*m20*m21);
 };
 void cumulant_42(float32_t in[], float32_t *out){
-	float32_t m42, m20, m21, temp;
-	moment42(&in[0], &m42);
-	moment20(&in[0], &m20);
-	moment21(&in[0], &m21);
-	temp = fabsf(m20);
-	*out = fabsf(m42 - temp*temp - 2*m21*m21);
+	float32_t m42[2], m20[2], m20_2[2], m21;
+	float32_t _2_m21_2, abs_m20_2;
+	float32_t temp[2];
+	// From complex multiplication
+	// Calculate 3*m20*m21
+	moment42(&in[0], &m42[0]); // m42 is complex
+	moment20(&in[0], &m20[0]); // m20 is complex
+	moment21(&in[0], &m21);    // m21 is real
+	// Calculate 2*m1^2
+	_2_m21_2 = 2 * m21 * m21;
+	// Calculate |m20^2|
+	// From complex multiplication
+	// (a + bi)(a + bi) = (a^2 - b^2) + (2ab)i
+	m20_2[0] = m20[0] * m20[0] - m20[1] * m20[1];
+	m20_2[1] = 2 * m20[0] * m20[1];
+	abs_m20_2 = sqrtf(m20_2[0]*m20_2[0] + m20_2[1]*m20_2[1]);
+	temp[0] = m42[0] - abs_m20_2 - _2_m21_2;
+	temp[1] = m42[1];
+	*out = sqrtf(temp[0]*temp[0] + temp[1]*temp[1]);
+	// *out = fabsf(m42 - fabsf(m20*m20) - 2*m21*m21);
 };
 void cumulant_60(float32_t in[], float32_t *out){
-	float32_t m60, m40, m20;
-	moment20(&in[0], &m20);
-	moment40(&in[0], &m40);
-	moment60(&in[0], &m60);
-	*out = fabsf(m60 - 15*m20*m40 + 30*m20*m20*m20);
+	float32_t m60[2], m40[2], m20[2];
+	float32_t _15_m20_m40[2], _3_m20_3[2];
+	float32_t temp[2];
+	moment20(&in[0], &m20[0]); // m20 is complex
+	moment40(&in[0], &m40[0]); // m40 is complex
+	moment60(&in[0], &m60[0]); // m60 is complexs
+	// Calculate 15*m20*m40
+	// From complex multiplication
+	// (a + bi)(a + bi) = (a^2 - b^2) + (2ab)i
+	_15_m20_m40[0] = 15 * (m20[0] * m40[0] - m20[1] * m40[1]);
+	_15_m20_m40[1] = 15 * (m20[0] * m40[1] + m20[1] * m40[0]);
+	// Calculate 30*m20*m20*m20
+	// From complex multiplication
+	// (a + bi)(a + bi)(a + bi) = (a^3 - 3ab^2) + (3a^2b - b^3)i
+	_3_m20_3[0] = 3 * (m20[0]*m20[0]*m20[0] - 3 * m20[0]*m20[1]*m20[1]);
+	_3_m20_3[1] = 3 * (3 * m20[0]*m20[0]*m20[1] - m20[1]*m20[1]*m20[1]);
+	temp[0] = m60[0] -_15_m20_m40[0] + _3_m20_3[0];
+	temp[1] = m60[1] -_15_m20_m40[1] + _3_m20_3[1];
+	*out = sqrtf(temp[0]*temp[0] + temp[1]*temp[1]);
+	// *out = fabsf(m60 - 15*m20*m40 + 30*m20*m20*m20);
 };
 void cumulant_61(float32_t in[], float32_t *out){
 	//M61 - 5 M21 M40 - 10 M20 M41 + 30 M20 M20 M21
-	float32_t m61, m21, m40, m20, m41;
-	moment20(&in[0], &m20);
-	moment21(&in[0], &m21);
-	moment40(&in[0], &m40);
-	moment41(&in[0], &m41);
-	moment61(&in[0], &m61);
-	*out = fabsf(m61 - 5*m21*m40 - 10*m20*m41 + 30*m20*m20*m21);
+	float32_t m61[2], m21, m40[2], m20[2], m41[2];
+	float32_t _5_m21_m40[2], _10_m20_m41[2], _30_m20_2[2], _30_m20_m21[2];
+	float32_t temp[2];
+	moment20(&in[0], &m20[0]); // m20 is complex
+	moment21(&in[0], &m21); // m21 is real
+	moment40(&in[0], &m40[0]); // m40 is complex
+	moment41(&in[0], &m41[0]); // m41 is complex
+	moment61(&in[0], &m61[0]); // m61 is complex
+	// Calculate 5*m21*m40
+	_5_m21_m40[0] = 5 * m40[0]*m21;
+	_5_m21_m40[1] = 5 * m40[1]*m21;
+	// Calculate 10*m20*m41
+	// From complex multiplication
+	// (a + bi)(a + bi) = (a^2 - b^2) + (2ab)i
+	_10_m20_m41[0] = 10 * (m20[0] * m41[0] - m20[1] * m41[1]);
+	_10_m20_m41[1] = 10 * (m20[0] * m41[1] + m20[1] * m41[0]);
+	// Calculate 30*m20^2*m21
+	// From complex multiplication
+	// (a + bi)(a + bi) = (a^2 - b^2) + (2ab)i
+	_30_m20_2[0] = 30 * (m20[0] * m20[0] - m20[1] * m20[1]);
+	_30_m20_2[1] = 30 * (2 * m20[0] * m20[1]);
+	_30_m20_m21[0] = _30_m20_2[0]*m21;
+	_30_m20_m21[1] = _30_m20_2[1]*m21;
+	temp[0] = m61[0] - _5_m21_m40[0] - _10_m20_m41[0] + _30_m20_m21[0];
+	temp[1] = m61[1] - _5_m21_m40[1] - _10_m20_m41[1] + _30_m20_m21[1];
+	*out = sqrtf(temp[0]*temp[0] + temp[1]*temp[1]);
+	// *out = fabsf(m61 - 5*m21*m40 - 10*m20*m41 + 30*m20*m20*m21);
 };
 void cumulant_62(float32_t in[], float32_t *out){
 	// M62 - 6 M20 M42 - 8 M21 M41 - M22 M40 + 6 M20 M20 M22 + 24 M21 M21 M22
-	float32_t m62, m20, m42, m21, m41, m22, m40;
-	moment20(&in[0], &m20);
-	moment21(&in[0], &m21);
-	moment22(&in[0], &m22);
-	moment40(&in[0], &m40);
-	moment41(&in[0], &m41);
-	moment42(&in[0], &m42);
-	moment62(&in[0], &m62);
-	*out = fabsf(m62 - 6*m20*m42 - 8*m21*m41 - m22*m40 + 6*m20*m20*m22 + 24*m21*m21*m22);
+	float32_t m62[2], m20[2], m42[2], m21, m41[2], m22[2], m40[2];
+	float32_t _6_m20_m42[2], _8_m21_m41[2], m22_m40[2], _6_m20_2[2], _6_m20_m20_m22[2], _24_m21_m21_m22[2];
+	float32_t temp[2];
+	moment20(&in[0], &m20[0]); // m20 is complex
+	moment21(&in[0], &m21); // m21 is real
+	moment22(&in[0], &m22[0]); // m22 is complex
+	moment40(&in[0], &m40[0]); // m40 is complex
+	moment41(&in[0], &m41[0]); // m41 is complex
+	moment42(&in[0], &m42[0]); // m42 is complex
+	moment62(&in[0], &m62[0]); // m62 is complex
+	// Calculate 6*m20*m42, 8*m21*m41, m22*m40, 6*m20*m20*m22 + 24*m21*m21*m22
+	// From complex multiplication
+	// (a + bi)(a + bi) = (a^2 - b^2) + (2ab)i
+	_6_m20_m42[0] = 6 * (m20[0] * m42[0] - m20[1] * m42[1]);
+	_6_m20_m42[1] = 6 * (m20[0] * m42[1] + m20[1] * m42[0]);
+	_8_m21_m41[0] = 8 * m21 * m41[0];
+	_8_m21_m41[1] = 8 * m21 * m41[1];
+	m22_m40[0] = (m22[0] * m40[0] - m22[1] * m40[1]);
+	m22_m40[1] = (m22[0] * m40[1] + m22[1] * m40[0]);
+	_6_m20_2[0] = 6 * (m20[0] * m20[0] - m20[1] * m20[1]);
+	_6_m20_2[1] = 6 * (2 * m20[0] * m20[1]);
+	_6_m20_m20_m22[0] = _6_m20_2[0] * m22[0] - _6_m20_2[1] * m22[1];
+	_6_m20_m20_m22[1] = _6_m20_2[0] * m22[1] + _6_m20_2[1] * m22[0];
+	_24_m21_m21_m22[0] = 24 * m21 * m21 * m20[0];
+	_24_m21_m21_m22[1] = 24 * m21 * m21 * m20[1];
+	temp[0] = m62[0] - _6_m20_m42[0] - _8_m21_m41[0] - m22_m40[0] + _6_m20_m20_m22[0] + _24_m21_m21_m22[0];
+	temp[1] = m62[1] - _6_m20_m42[1] - _8_m21_m41[1] - m22_m40[1] + _6_m20_m20_m22[1] + _24_m21_m21_m22[1];
+	*out = sqrtf(temp[0]*temp[0] + temp[1]*temp[1]);
+	// *out = fabsf(m62 - 6*m20*m42 - 8*m21*m41 - m22*m40 + 6*m20*m20*m22 + 24*m21*m21*m20);
 };
 void cumulant_63(float32_t in[], float32_t *out){
 	// M63 - 9 M21 M42 + 12 M21 M21 M21 - 3 M20 M43 - 3 M22 M41 + 18 M20 M21 M22
-	float32_t m63, m21, m42, m20, m43, m22, m41;
-	moment20(&in[0], &m20);
-	moment21(&in[0], &m21);
-	moment22(&in[0], &m22);
-	moment41(&in[0], &m41);
-	moment42(&in[0], &m42);
-	moment43(&in[0], &m43);
-	moment63(&in[0], &m63);
-	*out = fabsf(m63 - 9*m21*m42 + 12*m21*m21*m21 - 3*m20*m43 - 3*m22*m41 + 18*m20*m21*m22);
+	float32_t m63[2], m21, m42[2], m20[2], m43[2], m22[2], m41[2];
+	float32_t _9_m21_m42[2], _3_m20_m43[2], _3_m22_m41[2], _18_m20_m21_m22[2], _12_m21_3;
+	float32_t temp[2];
+	moment20(&in[0], &m20[0]); // m20 is complex
+	moment21(&in[0], &m21); // m21 is real
+	moment22(&in[0], &m22[0]); // m22 is complex
+	moment41(&in[0], &m41[0]); // m41 is complex
+	moment42(&in[0], &m42[0]); // m42 is complex
+	moment43(&in[0], &m43[0]); // m43 is complex
+	moment63(&in[0], &m63[0]); // m64 is complex
+	// Calculate 9*m21*m42, 3*m20*m43, 3*m22*m41 + 18*m20*m21*m22
+	// From complex multiplication
+	// (a + bi)(a + bi) = (a^2 - b^2) + (2ab)i
+	_9_m21_m42[0] = 9 * m21 * m42[0];
+	_9_m21_m42[1] = 9 * m21 * m42[1];
+	_3_m20_m43[0] = 3 * (m20[0] * m43[0] - m20[1] * m43[1]);
+	_3_m20_m43[1] = 3 * (m20[0] * m43[1] + m20[1] * m43[0]);
+	_3_m22_m41[0] = 3 * (m22[0] * m41[0] - m22[1] * m41[1]);
+	_3_m22_m41[1] = 3 * (m22[0] * m41[1] + m22[1] * m41[0]);
+	_18_m20_m21_m22[0] = 18 * m21 * (m20[0] * m22[0] - m20[1] * m22[1]);
+	_18_m20_m21_m22[1] = 18 * m21 * (m20[0] * m22[1] + m20[1] * m22[0]);
+	// Calculate 12*m21*m21*m21
+	_12_m21_3 = 12 * m21 * m21 * m21;
+	temp[0] = m63[0] - _9_m21_m42[0] + _12_m21_3 - _3_m20_m43[0] - _3_m22_m41[0] + _18_m20_m21_m22[0];
+	temp[1] = m63[1] - _9_m21_m42[1] - _3_m20_m43[1] - _3_m22_m41[1] + _18_m20_m21_m22[1];
+	*out = sqrtf(temp[0]*temp[0] + temp[1]*temp[1]);
+	// *out = fabsf(m63 - 9*m21*m42 + 12*m21*m21*m21 - 3*m20*m43 - 3*m22*m41 + 18*m20*m21*m22);
 };
 
 
