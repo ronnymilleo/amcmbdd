@@ -53,13 +53,22 @@ const uint32_t number_of_features = 22;
 const uint32_t frameSize = FT_INPUT_VECTOR_SIZE;
 const uint8_t txHead[4] = {0xCA, 0xCA, 0xCA, 0xCA};
 const uint8_t txTail[4] = {0xF0, 0xF0, 0xF0, 0xF0};
-q15_t aq15_out_Buf[22] = {0};
+q15_t layer_1_out_Buf[22] = {0};
+q15_t layer_2_out_Buf[22] = {0};
+q15_t layer_3_out_Buf[18] = {0};
+q15_t layer_4_out_Buf[14] = {0};
+q15_t layer_5_out_Buf[6] = {0};
+q15_t output_data[6] = {0};
 q15_t aq15_layer_1_weights[22*22] = {0};
-q15_t aq15_layer_1_bias[22] = {0};
+q15_t aq15_layer_1_biases[22] = {0};
 q15_t aq15_layer_2_weights[22*22] = {0};
-q15_t aq15_layer_2_bias[22] = {0};
-q15_t aq15_layer_3_weights[22*22] = {0};
-q15_t aq15_layer_3_bias[22] = {0};
+q15_t aq15_layer_2_biases[22] = {0};
+q15_t aq15_layer_3_weights[22*18] = {0};
+q15_t aq15_layer_3_biases[18] = {0};
+q15_t aq15_layer_4_weights[18*14] = {0};
+q15_t aq15_layer_4_biases[14] = {0};
+q15_t aq15_layer_5_weights[14*6] = {0};
+q15_t aq15_layer_5_biases[6] = {0};
 // Variables go to FLASH memory
 union inst
 {
@@ -71,6 +80,11 @@ union rxData
 	float32_t number[RX_DATA_SIZE];
 	uint8_t bytes[RX_DATA_SIZE*4];
 } rxBuffer = {0};
+union rxWeightsAndBiases
+{
+	int16_t number[1700 + 82];
+	uint8_t bytes[1700*2 + 82*2];
+} rxWandB = {0};
 union cycles_counter_array
 {
 	uint32_t number[5 + 22 + 1];
@@ -80,10 +94,10 @@ union features
 {
 	float32_t number[22];
 	uint8_t bytes[4*22];
-} ft_array = {0};
+} ft_array = {0}, scaled_ft_array = {0};
 union prediction
 {
-	uint32_t number;
+	float32_t number;
 	uint8_t bytes[4];
 } predicted = {0};
 __IO ITStatus UartReady = RESET;
@@ -104,7 +118,9 @@ void blink_green_slow();
 void transmit_prediction(uint8_t *value, uint8_t *counter);
 void transmit_features(uint8_t *value, uint8_t *counter);
 void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter);
-void transmit_echo(uint8_t *array, uint16_t size);
+void transmit_echo_wandb(uint8_t *array, uint16_t size);
+void transmit_echo_data(uint8_t *array, uint16_t size);
+void preprocess_features(float32_t in[], float32_t out[]);
 void quantize_features(float32_t in[], q15_t out[]);
 /* USER CODE END PFP */
 
@@ -188,6 +204,41 @@ HSEM notification */
 	__HAL_TIM_UIFREMAP_DISABLE(&htim2);
 	HAL_TIM_Base_Start(&htim2);
 	__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+
+	// Put UART peripheral in reception process
+	if(HAL_UART_Receive_IT(&huart3, &rxWandB.bytes[0], 1700*2+82*2) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	// Wait for message
+	while (UartReady != SET)
+	{
+		HAL_Delay(500);
+		blink_green();
+		blink_green();
+	}
+	UartReady = RESET;
+	HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
+	if(rxWandB.bytes[1700*2+82*2 - 1] != 0){ // Means: received everything
+		HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
+	}
+	// Echo
+	transmit_echo_wandb(&rxWandB.bytes[0], 1700*2+82*2);
+
+	// Copying weights
+	arm_copy_q15(&rxWandB.number[0], &aq15_layer_1_weights[0], 22*22);
+	arm_copy_q15(&rxWandB.number[22*22], &aq15_layer_2_weights[0], 22*22);
+	arm_copy_q15(&rxWandB.number[22*22*2], &aq15_layer_3_weights[0], 22*18);
+	arm_copy_q15(&rxWandB.number[22*22*2 + 22*18], &aq15_layer_4_weights[0], 18*14);
+	arm_copy_q15(&rxWandB.number[22*22*2 + 22*18 + 18*14], &aq15_layer_5_weights[0], 14*6);
+
+	// Copying biases
+	arm_copy_q15(&rxWandB.number[1700], &aq15_layer_1_biases[0], 22);
+	arm_copy_q15(&rxWandB.number[1722], &aq15_layer_2_biases[0], 22);
+	arm_copy_q15(&rxWandB.number[1744], &aq15_layer_3_biases[0], 18);
+	arm_copy_q15(&rxWandB.number[1762], &aq15_layer_4_biases[0], 14);
+	arm_copy_q15(&rxWandB.number[1776], &aq15_layer_5_biases[0], 6);
+
 	/*****************************************************************************************************/
 	/* USER CODE END 2 */
 
@@ -210,41 +261,43 @@ HSEM notification */
 		}
 		UartReady = RESET;
 		HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
-		if(rxBuffer.bytes[8191] != 0){
+		if(rxBuffer.bytes[8191] != 0){ // Means: received everything
 			HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_SET);
 		}
+		/*
 		// Echo
-		transmit_echo(&rxBuffer.bytes[0], RX_DATA_SIZE*4);
+		transmit_echo_data(&rxBuffer.bytes[0], RX_DATA_SIZE*4);
+		*/
 		// Instantaneous absolute value
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		complex_inst_absolute(&rxBuffer.number[0], &instAbs.number[0]);
 		counter_array.number[0] = __HAL_TIM_GET_COUNTER(&htim2);
-		transmit_array(&instAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[0]);
+		//transmit_array(&instAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[0]);
 
 		// Instantaneous phase value
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		inst_phase(&rxBuffer.number[0], &instPhase.number[0]);
 		counter_array.number[1] = __HAL_TIM_GET_COUNTER(&htim2);
-		transmit_array(&instPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[4]);
+		//transmit_array(&instPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[4]);
 
 		// Instantaneous unwrapped phase value
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		inst_phase(&rxBuffer.number[0], &instPhase.number[0]);
 		unwrap(&instPhase.number[0], &instUnwrappedPhase.number[0]);
 		counter_array.number[2] = __HAL_TIM_GET_COUNTER(&htim2);
-		transmit_array(&instUnwrappedPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[8]);
+		//transmit_array(&instUnwrappedPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[8]);
 
 		// Instantaneous frequency value
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		inst_frequency(&rxBuffer.number[0], &instFreq.number[0]);
 		counter_array.number[3] = __HAL_TIM_GET_COUNTER(&htim2);
-		transmit_array(&instFreq.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[12]);
+		//transmit_array(&instFreq.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[12]);
 
 		// Instantaneous centered normalized absolute value
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		inst_centralized_normalized_absolute(&rxBuffer.number[0], &instCNAbs.number[0]);
 		counter_array.number[4] = __HAL_TIM_GET_COUNTER(&htim2);
-		transmit_array(&instCNAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[16]);
+		//transmit_array(&instCNAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[16]);
 
 		/*****************************************************************************************************/
 		// Standard deviation of the instantaneous phase
@@ -362,10 +415,13 @@ HSEM notification */
 
 		transmit_features(&ft_array.bytes[0], &counter_array.bytes[20]);
 
+		// Scale features (mean and var)
+		preprocess_features(&ft_array.number[0], &scaled_ft_array.number[0]);
+
 		// Evaluate neural network
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		quantize_features(&ft_array.number[0], &q15_input_vector[0]);
-		// fully_connected_run(&q15_input_vector[0], &predicted.number);
+		quantize_features(&scaled_ft_array.number[0], &q15_input_vector[0]);
+		fully_connected_run(&q15_input_vector[0], &predicted.number);
 		counter_array.number[27] = __HAL_TIM_GET_COUNTER(&htim2);
 		transmit_prediction(&predicted.bytes[0], &counter_array.bytes[4*27]);
 		/*************************************************************************************************/
@@ -571,7 +627,28 @@ void transmit_array(uint8_t *array, uint16_t size, uint8_t *counter){
 	blink_orange_slow();
 	clear_leds();
 }
-void transmit_echo(uint8_t *array, uint16_t size){
+void transmit_echo_wandb(uint8_t *array, uint16_t size){
+	if(UART_CheckIdleState(&huart3) == HAL_OK){
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 2);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &array[0], size);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txTail[0], 2);
+		while(UartReady != SET){
+			blink_red_fast();
+		}
+		UartReady = RESET;
+	}
+	blink_orange_slow();
+	clear_leds();
+}
+void transmit_echo_data(uint8_t *array, uint16_t size){
 	if(UART_CheckIdleState(&huart3) == HAL_OK){
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*) &txHead[0], 4);
 		while(UartReady != SET){
@@ -591,6 +668,9 @@ void transmit_echo(uint8_t *array, uint16_t size){
 	}
 	blink_orange_slow();
 	clear_leds();
+}
+void preprocess_features(float32_t in[], float32_t out[]){
+
 }
 void quantize_features(float32_t in[], q15_t out[]){
 	const int16_t min_int16_t = SHRT_MIN;

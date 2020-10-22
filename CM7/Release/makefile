@@ -11,6 +11,10 @@ RM := rm -rf
 -include Drivers/STM32H7xx_HAL_Driver/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
+-include Core/NN-Src/SoftmaxFunctions/subdir.mk
+-include Core/NN-Src/NNSupportFunctions/subdir.mk
+-include Core/NN-Src/FullyConnectedFunctions/subdir.mk
+-include Core/NN-Src/ActivationFunctions/subdir.mk
 -include Common/Src/subdir.mk
 -include subdir.mk
 -include objects.mk
