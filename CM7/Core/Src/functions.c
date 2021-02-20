@@ -145,34 +145,7 @@ void gmax(float32_t in[], float32_t *out){
 }
 
 // Features number 11 and 12
-void kurtosis_of_abs_amplitude(float32_t in[], float32_t *out, uint32_t blockSize){
-	float32_t mean_array[blockSize];
-	float32_t x_1[blockSize];
-	float32_t x_2[blockSize];
-	float32_t temp_1[blockSize];
-	float32_t temp_2[blockSize];
-	float32_t result[blockSize];
-	float32_t mean, m4, m2;
-	// Calculate mean
-	arm_mean_f32(&in[0], blockSize, &mean);
-	// Transform scalar into vector
-	arm_fill_f32(mean, &mean_array[0], blockSize);
-	// Calculate (x - mean)
-	arm_sub_f32(&in[0], &mean_array[0], &x_1[0], blockSize);
-	// Make a copy of (x - mean)
-	arm_copy_f32(&x_1[0], &x_2[0], blockSize);
-	// Calculate (x - mean) ^ 4
-	arm_mult_f32(&x_1[0], &x_2[0], &temp_1[0], blockSize); // temp1 = (x - u)^2
-	arm_mult_f32(&temp_1[0], &x_2[0], &temp_2[0], blockSize); // temp2 = (x - u)^3
-	arm_mult_f32(&temp_2[0], &x_2[0], &result[0], blockSize); // result = (x - u)^4
-	// Calculate mean of (x - mean) ^ 4
-	arm_mean_f32(&result[0], blockSize, &m4);
-	// Calculate mean of (x - mean) ^ 2
-	arm_mean_f32(&temp_1[0], blockSize, &m2);
-	*out = m4 / (m2*m2) - 3;
-}
-
-void kurtosis_of_abs_freq(float32_t in[], float32_t *out, uint32_t blockSize){
+void kurtosis(float32_t in[], float32_t *out, uint32_t blockSize){
 	float32_t mean_array[blockSize];
 	float32_t x_1[blockSize];
 	float32_t x_2[blockSize];

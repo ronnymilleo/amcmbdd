@@ -264,6 +264,7 @@ HSEM notification */
 	}
 	// Echo
 	transmit_echo_data(&rxScaler.bytes[0], NUMBER_OF_FEATURES * 2 * 4);
+
 	/*****************************************************************************************************/
 	/* USER CODE END 2 */
 
@@ -291,8 +292,10 @@ HSEM notification */
 			HAL_GPIO_WritePin(GPIOE, LD2_Pin, GPIO_PIN_SET);
 		}
 
+		/*
 		// Echo
-		// transmit_echo_data(&rxBuffer.bytes[0], RX_DATA_SIZE*4);
+		transmit_echo_data(&rxBuffer.bytes[0], RX_DATA_SIZE*4);
+		*/
 
 		// Instantaneous absolute value
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
@@ -316,56 +319,55 @@ HSEM notification */
 		inst_centralized_normalized_absolute(&rxBuffer.number[0], &instCNAbs.number[0]);
 		counter_array.number[4] = __HAL_TIM_GET_COUNTER(&htim2);
 
-
-		//transmit_array(&instAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[0]);
-		//transmit_array(&instPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[4]);
-		//transmit_array(&instUnwrappedPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[8]);
-		//transmit_array(&instFreq.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[12]);
-		//transmit_array(&instCNAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[16]);
+		/*
+		transmit_array(&instAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[0]);
+		transmit_array(&instPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[4]);
+		transmit_array(&instUnwrappedPhase.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[8]);
+		transmit_array(&instFreq.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[12]);
+		transmit_array(&instCNAbs.bytes[0], FT_INPUT_VECTOR_SIZE*4, &counter_array.bytes[16]);
+		*/
 
 
 		/*****************************************************************************************************/
 		ft_counter = 0;
 		/*
-		// 0 - Standard deviation of the instantaneous phase
+		// 1 - Gmax
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		std_dev(&instPhase.number[0], &ft_array.number[ft_counter]);
+		gmax(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
-		// 1 - Standard deviation of the absolute instantaneous phase
+		*/
+
+		// 2 - Std of the Absolute Instantaneous Phase
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		inst_absolute(&instPhase.number[0], &instAbsPhase.number[0]);
 		std_dev(&instAbsPhase.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
-		// 2 - Standard deviation of the instantaneous frequency
+
+		/*
+		// 3 - Std of the Direct Instantaneous Phase
+		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+		std_dev(&instPhase.number[0], &ft_array.number[ft_counter]);
+		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
+		ft_counter++;
+		*/
+
+		// 4 - Std of the CN Instantaneous Amplitude
+		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+		inst_absolute(&instCNAbs.number[0], &instAbsCNAbs.number[0]);
+		std_dev(&instAbsCNAbs.number[0], &ft_array.number[ft_counter]);
+		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
+		ft_counter++;
+
+		/*
+		// 5 - Std of the Instantaneous Frequency
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		std_dev(&instFreq.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
 		*/
 
-		// 3 - Standard deviation of the absolute instantaneous frequency
-		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		inst_absolute(&instFreq.number[0], &instAbsFreq.number[0]);
-		std_dev(&instAbsFreq.number[0], &ft_array.number[ft_counter]);
-		counter_array.number[8] = __HAL_TIM_GET_COUNTER(&htim2);
-		ft_counter++;
-
-		/*
-		// 4 - Standard deviation of the centralized normalized absolute amplitude
-		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		std_dev(&instCNAbs.number[0], &ft_array.number[ft_counter]);
-		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
-		ft_counter++;
-		*/
-
-		// 5 - Standard deviation of the absolute centralized normalized absolute amplitude
-		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		inst_absolute(&instCNAbs.number[0], &instAbsCNAbs.number[0]);
-		std_dev(&instAbsCNAbs.number[0], &ft_array.number[ft_counter]);
-		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
-		ft_counter++;
 		// 6 - Mean Value of the Signal Magnitude
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		mean_of_signal_magnitude(&instAbs.number[0], &ft_array.number[ft_counter]);
@@ -373,89 +375,100 @@ HSEM notification */
 		ft_counter++;
 
 		/*
-		// 7 - Squared Mean of the Signal Magnitude
-		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		squared_mean_of_signal_magnitude(&instAbs.number[0], &ft_array.number[ft_counter]);
-		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
-		ft_counter++;
-		// 8 - Normalized Sqrt Value of Sum of Amplitude
+		// 7 - Normalized square root value of sum of amplitude of signal samples
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		normalized_sqrt_of_sum_of_amp(&instAbs.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
-		// 9 - Ratio of I/Q Components
-		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		ratio_iq(&rxBuffer.number[0], &ft_array.number[ft_counter]);
-		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
-		ft_counter++;
-		// 10 - Gmax
-		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		gmax(&rxBuffer.number[0], &ft_array.number[ft_counter]);
-		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
-		ft_counter++;
 		*/
 
-		// 11 - Kurtosis of the Absolute Amplitude
+		// 8 - Kurtosis of the CN Amplitude
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		kurtosis_of_abs_amplitude(&instAbs.number[0], &ft_array.number[ft_counter], frameSize);
+		kurtosis(&instCNAbs.number[0], &ft_array.number[ft_counter], frameSize);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
 
 		/*
-		// 12 - Kurtosis of the Absolute Frequency
+		// 9 - Kurtosis of the CN Frequency
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
-		kurtosis_of_abs_freq(&instAbsFreq.number[0], &ft_array.number[ft_counter], frameSize - 1);
+		kurtosis(&instFreq.number[0], &ft_array.number[ft_counter], frameSize);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
-		// 13 - Cumulant 20
+		*/
+
+		/*
+		// Standard deviation of the absolute centralized normalized absolute amplitude
+		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+		inst_absolute(&instCNAbs.number[0], &instAbsCNAbs.number[0]);
+		std_dev(&instAbsCNAbs.number[0], &ft_array.number[ft_counter]);
+		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
+		ft_counter++;
+		// Squared Mean of the Signal Magnitude
+		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+		squared_mean_of_signal_magnitude(&instAbs.number[0], &ft_array.number[ft_counter]);
+		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
+		ft_counter++;
+		// Ratio of I/Q Components
+		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
+		ratio_iq(&rxBuffer.number[0], &ft_array.number[ft_counter]);
+		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
+		ft_counter++;
+		*/
+
+		/*
+		// 10 - Cumulant 20
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		cumulant_20(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
-		// 14 - Cumulant 21
+
+		// 11 - Cumulant 21
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		cumulant_21(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
 		*/
 
-		// 15 - Cumulant 40
+		// 12 - Cumulant 40
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		cumulant_40(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
 
 		/*
-		// 16 - Cumulant 41
+		// 13 - Cumulant 41
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		cumulant_41(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
 		*/
 
-		// 17 - Cumulant 42
+		// 14 - Cumulant 42
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		cumulant_42(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
 
 		/*
-		// 18 - Cumulant 60
+		// 15 - Cumulant 60
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		cumulant_60(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
-		// 19 - Cumulant 61
+
+		// 16 - Cumulant 61
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		cumulant_61(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
-		// 20 - Cumulant 62
+
+		// 17 - Cumulant 62
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		cumulant_62(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
 		ft_counter++;
-		// 21 - Cumulant 63
+
+		// 18 - Cumulant 63
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);
 		cumulant_63(&rxBuffer.number[0], &ft_array.number[ft_counter]);
 		counter_array.number[ft_counter + 5] = __HAL_TIM_GET_COUNTER(&htim2);
@@ -466,8 +479,18 @@ HSEM notification */
 
 		// Scale features (mean and var)
 		preprocess_features(&ft_array.number[0], &scaled_ft_array.number[0]);
-		min_range.number = -8.0f;
-		max_range.number = 7.99951171875f;
+
+		// Q4.11
+		//min_range.number = -8.0f;
+		//max_range.number = 7.9995117f;
+
+		// Q3.12
+		min_range.number = -4.0f;
+		max_range.number = 3.9997559f;
+
+		// Q2.13
+		//min_range.number = -2.0f;
+		//max_range.number = 1.9998779f;
 
 		// Evaluate neural network
 		__HAL_TIM_SET_COUNTER(&htim2, 0x0U);

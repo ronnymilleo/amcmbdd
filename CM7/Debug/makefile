@@ -51,8 +51,8 @@ main_project_CM7.bin \
 all: main_project_CM7.elf secondary-outputs
 
 # Tool invocations
-main_project_CM7.elf: $(OBJS) $(USER_OBJS) C:\Users\ronny\STM32CubeIDE\mestrado\amcmbdd\CM7\STM32H745ZITX_FLASH.ld
-	arm-none-eabi-gcc -o "main_project_CM7.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\ronny\STM32CubeIDE\mestrado\amcmbdd\CM7\STM32H745ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="main_project_CM7.map" -Wl,--gc-sections -static -L"C:\Users\ronny\STM32Cube\Repository\STM32Cube_FW_H7_V1.8.0\Drivers\CMSIS\Lib\GCC" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+main_project_CM7.elf: $(OBJS) $(USER_OBJS) D:\Programming\C\amcmbdd\CM7\STM32H745ZITX_FLASH.ld
+	arm-none-eabi-gcc -o "main_project_CM7.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"D:\Programming\C\amcmbdd\CM7\STM32H745ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="main_project_CM7.map" -Wl,--gc-sections -static -L"D:\Programming\C\STM32Cube\Repository\STM32Cube_FW_H7_V1.8.0\Drivers\CMSIS\Lib\GCC" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

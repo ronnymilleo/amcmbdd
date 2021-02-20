@@ -30,8 +30,7 @@ void ratio_iq(float32_t in[], float32_t *out);
 void gmax(float32_t src[], float32_t *maxValue);
 
 // Features no 11 and 12
-void kurtosis_of_abs_amplitude(float32_t in[], float32_t *out, uint32_t blockSize);
-void kurtosis_of_abs_freq(float32_t in[], float32_t *out, uint32_t blockSize);
+void kurtosis(float32_t in[], float32_t *out, uint32_t blockSize);
 
 // Features no 13, 14, 15, 16, 17, 18, 19, 20 and 21
 void moment20(float32_t in[], float32_t out[]);
